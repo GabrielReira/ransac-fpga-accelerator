@@ -17,7 +17,6 @@ import argparse
 from copy import copy
 from datetime import datetime
 from pathlib import Path
-
 import cv2
 import numpy as np
 from numpy.random import default_rng
@@ -110,14 +109,14 @@ class LineModel:
 #    https://en.wikipedia.org/wiki/Random_sample_consensus
 # ----------------------------------------------------------------------
 class RANSAC:
-    def __init__(self, n=2, k=300, t=2.0, d=40, model=None, model_filter=None, seed=SEED):
-        self.n = n          # pontos minimos para instanciar o modelo (2 para reta)
-        self.k = k          # numero maximo de iteracoes
-        self.t = t          # limiar de distancia (px) para considerar inlier
-        self.d = d          # minimo de inliers para o modelo ser considerado valido
-        self.model = model
-        self.model_filter = model_filter  # callable(model) -> bool; None = aceita tudo
-        self.seed = seed    # fixa o resultado entre execucoes
+    def __init__(self, n=2, k=100, t=0.05, d=50, model=None, filter=None, seed=SEED):
+        self.n = n            # pontos minimos para instanciar o modelo (2 para reta)
+        self.k = k            # numero maximo de iteracoes
+        self.t = t            # limiar de distancia (px) para considerar inlier
+        self.d = d            # minimo de inliers para o modelo ser considerado valido
+        self.model = model    # modelo para explicar os pontos observados
+        self.filter = filter  # descarta modelos implausiveis (ex: quase horizontais)
+        self.seed = seed      # fixa o resultado entre execucoes
         self.best_fit = None
         self.best_inliers = None
         self.best_score = -1
@@ -133,8 +132,8 @@ class RANSAC:
             sample_ids, rest_ids = ids[: self.n], ids[self.n:]
 
             maybe_model = copy(self.model).fit(points[sample_ids])
-            if self.model_filter and not self.model_filter(maybe_model):
-                continue  # descarta modelos implausiveis (ex: quase horizontais) sem calcular inliers
+            if self.filter and not self.filter(maybe_model):
+                continue  # descarta modelos sem calcular inliers
 
             inlier_ids = rest_ids[maybe_model.distance(points[rest_ids]) < self.t]
             if inlier_ids.size + self.n < self.d:
@@ -142,8 +141,8 @@ class RANSAC:
 
             all_ids = np.concatenate([sample_ids, inlier_ids])
             refined_model = copy(self.model).fit(points[all_ids])
-            if self.model_filter and not self.model_filter(refined_model):
-                continue  # o refit pode puxar o angulo pra fora da faixa aceita
+            if self.filter and not self.filter(refined_model):
+                continue  # refit pode puxar angulo pra fora da faixa aceita pelo filter
 
             if all_ids.size > self.best_score:
                 self.best_score = all_ids.size
@@ -156,9 +155,10 @@ class RANSAC:
 # ----------------------------------------------------------------------
 # 4. Pipeline completo
 # ----------------------------------------------------------------------
-def detect_lane(image_path, out_path, method_canny=(50, 150),
-                 ransac_k=300, ransac_t=0.05, ransac_d=40, ransac_seed=SEED,
-                 min_angle_deg=15, max_angle_deg=90):
+def detect_lane(
+        image_path, out_path, method_canny=(50, 150), ransac_k=100, ransac_t=0.05,
+        ransac_d=50, ransac_seed=SEED, min_angle_deg=15, max_angle_deg=90
+    ):
     image_bgr = cv2.imread(str(image_path))
     if image_bgr is None:
         raise FileNotFoundError(f"Nao foi possivel abrir '{image_path}'")
@@ -170,12 +170,14 @@ def detect_lane(image_path, out_path, method_canny=(50, 150),
     points = edges_to_points(edges)
 
     model_filter = lambda m: min_angle_deg <= m.angle_deg() <= max_angle_deg
-    ransac = RANSAC(k=ransac_k, t=ransac_t, d=ransac_d, model=LineModel(),
-                     model_filter=model_filter, seed=ransac_seed)
+    ransac = RANSAC(
+        k=ransac_k, t=ransac_t, d=ransac_d, model=LineModel(),
+        filter=model_filter, seed=ransac_seed
+    )
     ransac.fit(points)
 
     if ransac.best_fit is None:
-        print(f"Nenhuma faixa identificada em '{image_path}'.")
+        print(f"Nenhuma faixa identificada em '{image_path}'")
         cv2.imwrite(str(out_path), image_bgr)
         return
 
@@ -188,20 +190,22 @@ def detect_lane(image_path, out_path, method_canny=(50, 150),
     cv2.line(result, tuple(map(round, p1)), tuple(map(round, p2)), RED, thickness=3)
 
     m = ransac.best_fit
-    print(f"Faixa detectada: {m.a:.4f}*x + {m.b:.4f}*y + {m.c:.4f} = 0  "
-          f"({ransac.best_score}/{points.shape[0]} inliers)")
+    print(
+        f"Faixa detectada: {m.a:.4f}*x + {m.b:.4f}*y + {m.c:.4f} = 0\n"
+        f"({ransac.best_score}/{points.shape[0]} inliers)"
+    )
     cv2.imwrite(str(out_path), result)
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Deteccao de faixa via bordas + RANSAC")
-    parser.add_argument("imagem", help="Caminho da imagem de entrada")
+    parser.add_argument("image", help="Caminho da imagem de entrada")
     args = parser.parse_args()
 
-    entrada = Path(args.imagem)
+    input_image = Path(args.image)
     timestamp = datetime.now().strftime("%d%m%Y%H%M%S")
-    saida_dir = Path(RESULT_PATH)
-    saida_dir.mkdir(parents=True, exist_ok=True)
-    saida = saida_dir / f"{entrada.stem}_result_{timestamp}{entrada.suffix}"
+    output_path = Path(RESULT_PATH)
+    output_path.mkdir(parents=True, exist_ok=True)
+    output_path = output_path / f"{input_image.stem}_result_{timestamp}{input_image.suffix}"
 
-    detect_lane(entrada, saida)
+    detect_lane(input_image, output_path, ransac_k=5000, ransac_t=0.1, ransac_d=60)
