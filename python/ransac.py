@@ -22,6 +22,7 @@ import cv2
 import numpy as np
 from numpy.random import default_rng
 
+SEED = 42
 RED = (0, 0, 255)
 RESULT_PATH = Path("test_images/results")
 
@@ -109,19 +110,20 @@ class LineModel:
 #    https://en.wikipedia.org/wiki/Random_sample_consensus
 # ----------------------------------------------------------------------
 class RANSAC:
-    def __init__(self, n=2, k=300, t=2.0, d=40, model=None, model_filter=None):
+    def __init__(self, n=2, k=300, t=2.0, d=40, model=None, model_filter=None, seed=SEED):
         self.n = n          # pontos minimos para instanciar o modelo (2 para reta)
         self.k = k          # numero maximo de iteracoes
         self.t = t          # limiar de distancia (px) para considerar inlier
         self.d = d          # minimo de inliers para o modelo ser considerado valido
         self.model = model
         self.model_filter = model_filter  # callable(model) -> bool; None = aceita tudo
+        self.seed = seed    # fixa o resultado entre execucoes
         self.best_fit = None
         self.best_inliers = None
         self.best_score = -1
 
     def fit(self, points):
-        rng = default_rng()
+        rng = default_rng(self.seed)
         n_points = points.shape[0]
         if n_points < self.n:
             return self
@@ -155,7 +157,7 @@ class RANSAC:
 # 4. Pipeline completo
 # ----------------------------------------------------------------------
 def detect_lane(image_path, out_path, method_canny=(50, 150),
-                 ransac_k=300, ransac_t=0.05, ransac_d=40,
+                 ransac_k=300, ransac_t=0.05, ransac_d=40, ransac_seed=SEED,
                  min_angle_deg=15, max_angle_deg=90):
     image_bgr = cv2.imread(str(image_path))
     if image_bgr is None:
@@ -168,7 +170,8 @@ def detect_lane(image_path, out_path, method_canny=(50, 150),
     points = edges_to_points(edges)
 
     model_filter = lambda m: min_angle_deg <= m.angle_deg() <= max_angle_deg
-    ransac = RANSAC(k=ransac_k, t=ransac_t, d=ransac_d, model=LineModel(), model_filter=model_filter)
+    ransac = RANSAC(k=ransac_k, t=ransac_t, d=ransac_d, model=LineModel(),
+                     model_filter=model_filter, seed=ransac_seed)
     ransac.fit(points)
 
     if ransac.best_fit is None:
