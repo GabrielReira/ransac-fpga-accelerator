@@ -1,10 +1,11 @@
 """
-Deteccao de faixa de rodovia via extracao de bordas (Canny) + RANSAC.
+Deteccao de faixa de rodovia via filtro de cor (branco/amarelo) + RANSAC.
 
 Pipeline:
-    imagem (RGB) -> escala de cinza -> bordas (Canny) -> ROI (remove
-    ceu/horizonte/fundo) -> nuvem de pontos (x, y) -> RANSAC (ajuste de
-    curva x = a*y^2 + b*y + c) -> imagem original com a faixa marcada em
+    imagem (RGB) -> mascara de tinta branca/amarela -> ROI
+    (remove ceu/horizonte/fundo) -> nuvem de pontos (x, y), um ponto no
+    centro de cada corrida horizontal de pixels de tinta -> RANSAC (ajuste
+    de curva x = a*y^2 + b*y + c) -> imagem original com a faixa marcada em
     vermelho, restrita ao trecho coberto pelos pontos inliers.
 
 Uso:
@@ -27,19 +28,49 @@ RESULT_PATH = Path("test_images/results")
 
 
 # ----------------------------------------------------------------------
-# 1. Extracao de bordas (Canny) e conversao para nuvem de pontos
+# 1. Extracao de pixels e conversao para nuvem de pontos
 # ----------------------------------------------------------------------
-def extract_edges(gray, canny_low=50, canny_high=150):
-    """Aplica Canny e retorna a mascara binaria de bordas (mesma
-    resolucao da imagem de entrada)."""
-    return cv2.Canny(gray, canny_low, canny_high)
+def extract_paint_mask(image_bgr):
+    """Extrai apenas os pixels que correspondem a tinta branca ou amarela
+    comuns em faixa de rodovia."""
+    image_rgb = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2RGB)
+
+    # Pega os pixels brancos na faixa (210, 210, 210) +/- 45
+    white_center = np.array([210, 210, 210], dtype=np.int16)
+    white_margin = np.array([45, 45, 45], dtype=np.int16)
+
+    yellow_center = np.array([205, 185, 125], dtype=np.int16)
+    yellow_margin = np.array([35, 20, 45], dtype=np.int16)
+
+    white_mask = cv2.inRange(
+        image_rgb,
+        np.clip(white_center - white_margin, 0, 255).astype(np.uint8),
+        np.clip(white_center + white_margin, 0, 255).astype(np.uint8),
+    )
+    yellow_mask = cv2.inRange(
+        image_rgb,
+        np.clip(yellow_center - yellow_margin, 0, 255).astype(np.uint8),
+        np.clip(yellow_center + yellow_margin, 0, 255).astype(np.uint8),
+    )
+
+    return cv2.bitwise_or(white_mask, yellow_mask)
 
 
-def edges_to_points(edges):
-    """Converte uma mascara binaria de bordas num array (N, 2) de
-    coordenadas (x, y) dos pixels de borda."""
-    ys, xs = np.nonzero(edges)
-    return np.column_stack([xs, ys]).astype(np.float64)
+def mask_to_points(mask):
+    """Converte uma mascara binaria numa nuvem de pontos (N, 2) de
+    coordenadas (x, y).
+
+    Em vez de usar todos os pixels da mascara, cada corrida horizontal de
+    pixels consecutivos (a largura da faixa numa linha da imagem) vira um
+    unico ponto, no seu centro. Assim os pontos ficam sobre o eixo central
+    da tinta, sem o ruido de quantizacao (pixel inteiro) que existe dentro
+    da faixa, e a nuvem fica ~10x menor."""
+    padded = np.pad(mask > 0, ((0, 0), (1, 1))).astype(np.int8)
+    changes = np.diff(padded, axis=1)
+    ys, starts = np.nonzero(changes == 1)   # primeiro pixel de cada corrida
+    _, stops = np.nonzero(changes == -1)    # primeiro pixel DEPOIS de cada corrida
+    centers = (starts + stops - 1) / 2
+    return np.column_stack([centers, ys]).astype(np.float64)
 
 
 # ----------------------------------------------------------------------
@@ -64,6 +95,19 @@ def apply_roi(edges, vertices):
     mask = np.zeros_like(edges)
     cv2.fillPoly(mask, vertices, 255)
     return cv2.bitwise_and(edges, mask)
+
+
+# ----------------------------------------------------------------------
+# 1c. Pre-processamento completo (cor -> ROI -> pontos)
+# ----------------------------------------------------------------------
+def extract_lane_points(image_bgr):
+    """Roda todo o pre-processamento e devolve tambem as etapas
+    intermediarias (paint_mask, roi_mask, points), para que o
+    debug_preprocessing.py mostre exatamente o que o RANSAC recebe."""
+    h, w = image_bgr.shape[:2]
+    paint_mask = extract_paint_mask(image_bgr)
+    roi_mask = apply_roi(paint_mask, default_roi_vertices(w, h))
+    return paint_mask, roi_mask, mask_to_points(roi_mask)
 
 
 # ----------------------------------------------------------------------
@@ -121,10 +165,10 @@ def mean_square_error(y_true, y_pred):
 #    https://en.wikipedia.org/wiki/Random_sample_consensus
 # ----------------------------------------------------------------------
 class RANSAC:
-    def __init__(self,n=2,k=100,t=0.5,d=50,model=None,loss=None,metric=None,seed=SEED):
+    def __init__(self,n=2,k=100,t=0.5,d=50,model=None,loss=square_error_loss,metric=mean_square_error,seed=SEED):
         self.n = n            # pontos minimos para instanciar o modelo (2 para reta)
         self.k = k            # numero maximo de iteracoes
-        self.t = t            # limiar de distancia (px) para considerar inlier
+        self.t = t            # limiar sobre o residuo de `loss` (square_error_loss: px^2; t=1.0 -> |dx| < 1 px)
         self.d = d            # minimo de inliers para o modelo ser considerado valido
         self.model = model    # modelo para explicar os pontos observados
         self.loss = loss      # funcao de perda para avaliar a qualidade do modelo 
@@ -193,20 +237,15 @@ class RANSAC:
 # 4. Pipeline completo
 # ----------------------------------------------------------------------
 def detect_lane(
-        image_path, out_path, method_canny=(50, 150), ransac_k=100,
-        ransac_t=0.5, ransac_d=50, ransac_seed=SEED, 
-        loss=square_error_loss, metric=mean_square_error
+        image_path, out_path, ransac_k=1000, ransac_t=1.0, ransac_d=50,
+        ransac_seed=SEED, loss=square_error_loss, metric=mean_square_error
     ):
     image_bgr = cv2.imread(str(image_path))
     if image_bgr is None:
         raise FileNotFoundError(f"Nao foi possivel abrir '{image_path}'")
-    h, w = image_bgr.shape[:2]
 
-    gray = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2GRAY)
-    edges = extract_edges(gray, *method_canny)
-    edges = apply_roi(edges, default_roi_vertices(w, h))
-    points = edges_to_points(edges)
-    X, y = points[:, [1]], points[:, 0]  # X é o eixo vertical (y)
+    _, _, points = extract_lane_points(image_bgr)
+    X, y = points[:, [1]], points[:, 0]  # X é o eixo vertical (y da imagem)
 
     ransac = RANSAC(
         n = PolynomialRegressor.degree + 1,  # minimo de pontos para instanciar o modelo
@@ -239,8 +278,8 @@ def detect_lane(
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Deteccao de faixa via bordas + RANSAC")
-    parser.add_argument("image", help="Caminho da imagem de entrada")
+    parser = argparse.ArgumentParser()
+    parser.add_argument("image")
     args = parser.parse_args()
 
     input_image = Path(args.image)
@@ -249,4 +288,4 @@ if __name__ == "__main__":
     output_path.mkdir(parents=True, exist_ok=True)
     output_path = output_path / f"{input_image.stem}_result_{timestamp}{input_image.suffix}"
 
-    detect_lane(input_image, output_path, ransac_k=10000, ransac_t=0.3, ransac_d=200)
+    detect_lane(input_image, output_path)
