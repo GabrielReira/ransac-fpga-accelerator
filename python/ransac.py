@@ -2,9 +2,9 @@
 Deteccao de faixa de rodovia via extracao de bordas (Canny) + RANSAC.
 
 Pipeline:
-    imagem (BGR) -> escala de cinza -> bordas (Canny) -> ROI (remove
+    imagem (RGB) -> escala de cinza -> bordas (Canny) -> ROI (remove
     ceu/horizonte/fundo) -> nuvem de pontos (x, y) -> RANSAC (ajuste de
-    reta y = m*x + b) -> imagem original com a faixa marcada em
+    curva x = a*y^2 + b*y + c) -> imagem original com a faixa marcada em
     vermelho, restrita ao trecho coberto pelos pontos inliers.
 
 Uso:
@@ -67,53 +67,42 @@ def apply_roi(edges, vertices):
 
 
 # ----------------------------------------------------------------------
-# 2. Modelo de regressao linear (y = m*x + b)
+# 2. Modelo quadrático de regressão (x = a*y^2 + b*y + c)
 # ----------------------------------------------------------------------
-class LinearRegressor:
+class PolynomialRegressor:
+    degree = 2
+
     def __init__(self):
         self.params = None
-        self.m = self.b = None
+        self.a = self.b = self.c = None
+        self.y_min = self.y_max = None
+
+    def _design_matrix(self, y):
+        y = np.asarray(y, dtype=np.float64).reshape(-1)
+        return np.column_stack([y ** 2, y, np.ones_like(y)])
 
     def fit(self, X, y):
-        X = np.asarray(X, dtype=np.float64)
-        y = np.asarray(y, dtype=np.float64)
-        if X.ndim == 1:
-            X = X.reshape(-1, 1)
-        rows = X.shape[0]
-        X = np.hstack([np.ones((rows, 1)), X])
-        # Rejeita amostras em que nao eh possivel estimar uma reta
-        # Ex: quando os 2 pontos sorteados possuem exatamente o mesmo x
-        if np.linalg.matrix_rank(X) < X.shape[1]:
-            raise ValueError("Nao foi possivel estimar uma reta a partir da amostra")
-        self.params = np.linalg.inv(X.T @ X) @ X.T @ y
-        self.b = self.params[0]
-        self.m = self.params[1]
+        y_values = np.asarray(X, dtype=np.float64).reshape(-1)
+        x_values = np.asarray(y, dtype=np.float64).reshape(-1)
+        design = self._design_matrix(y_values)
+        if np.linalg.matrix_rank(design) < design.shape[1]:
+            raise ValueError("Nao foi possivel estimar uma parábola a partir da amostra")
+        self.params = np.linalg.lstsq(design, x_values, rcond=None)[0]
+        self.a, self.b, self.c = self.params
+        self.y_min = float(np.min(y_values))
+        self.y_max = float(np.max(y_values))
         return self
 
     def predict(self, X):
-        X = np.asarray(X, dtype=np.float64)
-        if X.ndim == 1:
-            X = X.reshape(-1, 1)
-        rows = X.shape[0]
-        X = np.hstack([np.ones((rows, 1)), X])
-        return X @ self.params
+        return self._design_matrix(X) @ self.params
 
-    def angle_deg(self):
-        """Inclinacao da reta em relacao a horizontal, em graus.
-        0 = horizontal, 90 = vertical."""
-        slope = self.params[1]
-        return np.degrees(np.arctan(abs(slope)))
-
-    def segment_from_inliers(self, inlier_points):
-        """
-        Retorna o segmento entre o menor e o maior x dos pontos inliers.
-        Nao extrapola alem da evidencia encontrada pelo RANSAC.
-        """
-        x_min = np.min(inlier_points[:, 0])
-        x_max = np.max(inlier_points[:, 0])
-        y_min = self.predict(np.array([[x_min]]))[0]
-        y_max = self.predict(np.array([[x_max]]))[0]
-        return (x_min, y_min), (x_max, y_max)
+    def curve_from_inliers(self, inlier_points, samples=100):
+        """Retorna pixels da curva entre o menor e o maior y dos pontos inliers."""
+        y_min = np.min(inlier_points[:, 1])
+        y_max = np.max(inlier_points[:, 1])
+        y_values = np.linspace(y_min, y_max, samples)
+        x_values = self.predict(y_values)
+        return np.column_stack([x_values, y_values])
 
 
 # ----------------------------------------------------------------------
@@ -132,13 +121,12 @@ def mean_square_error(y_true, y_pred):
 #    https://en.wikipedia.org/wiki/Random_sample_consensus
 # ----------------------------------------------------------------------
 class RANSAC:
-    def __init__(self,n=2,k=100,t=0.5,d=50,model=None,filter=None,loss=None,metric=None,seed=SEED):
+    def __init__(self,n=2,k=100,t=0.5,d=50,model=None,loss=None,metric=None,seed=SEED):
         self.n = n            # pontos minimos para instanciar o modelo (2 para reta)
         self.k = k            # numero maximo de iteracoes
         self.t = t            # limiar de distancia (px) para considerar inlier
         self.d = d            # minimo de inliers para o modelo ser considerado valido
         self.model = model    # modelo para explicar os pontos observados
-        self.filter = filter  # descarta modelos implausiveis (ex: quase horizontais)
         self.loss = loss      # funcao de perda para avaliar a qualidade do modelo 
         self.metric = metric  # metrica para avaliar a qualidade do modelo
         self.seed = seed      # fixa o resultado entre execucoes
@@ -166,10 +154,7 @@ class RANSAC:
                     X[sample_ids], y[sample_ids]
                 )
             except (np.linalg.LinAlgError, ValueError):
-                continue  # amostra nao permite estimar uma reta
-
-            if self.filter and not self.filter(maybe_model):
-                continue  # descarta modelos sem calcular inliers
+                continue  # amostra nao permite estimar uma parábola
 
             predictions = maybe_model.predict(X[rest_ids])
             residuals = self.loss(y[rest_ids], predictions)
@@ -182,9 +167,6 @@ class RANSAC:
                 refined_model = copy(self.model).fit(X[all_ids], y[all_ids])
             except (np.linalg.LinAlgError, ValueError):
                 continue
-
-            if self.filter and not self.filter(refined_model):
-                continue  # refit pode puxar angulo pra fora da faixa aceita pelo filter
 
             this_error = self.metric(y[all_ids], refined_model.predict(X[all_ids]))
             # Primeiro prioriza quantidade de inliers
@@ -212,8 +194,8 @@ class RANSAC:
 # ----------------------------------------------------------------------
 def detect_lane(
         image_path, out_path, method_canny=(50, 150), ransac_k=100,
-        ransac_t=0.5, ransac_d=50, ransac_seed=SEED, loss=square_error_loss,
-        metric=mean_square_error, min_angle_deg=15, max_angle_deg=89
+        ransac_t=0.5, ransac_d=50, ransac_seed=SEED, 
+        loss=square_error_loss, metric=mean_square_error
     ):
     image_bgr = cv2.imread(str(image_path))
     if image_bgr is None:
@@ -224,12 +206,12 @@ def detect_lane(
     edges = extract_edges(gray, *method_canny)
     edges = apply_roi(edges, default_roi_vertices(w, h))
     points = edges_to_points(edges)
-    X, y = points[:, [0]], points[:, 1]
+    X, y = points[:, [1]], points[:, 0]  # X é o eixo vertical (y)
 
-    model_filter = lambda m: min_angle_deg <= m.angle_deg() <= max_angle_deg
     ransac = RANSAC(
-        k=ransac_k, t=ransac_t, d=ransac_d, model=LinearRegressor(),
-        filter=model_filter, seed=ransac_seed, loss=loss, metric=metric
+        n = PolynomialRegressor.degree + 1,  # minimo de pontos para instanciar o modelo
+        k=ransac_k, t=ransac_t, d=ransac_d, model=PolynomialRegressor(),
+        seed=ransac_seed, loss=loss, metric=metric
     )
     ransac.fit(X, y)
 
@@ -239,16 +221,18 @@ def detect_lane(
         return
 
     inliers = points[ransac.best_inliers]
-    p1, p2 = ransac.best_fit.segment_from_inliers(inliers)
+    curve = ransac.best_fit.curve_from_inliers(inliers)
 
     result = image_bgr.copy()
     for x_values, y_values in inliers:
         cv2.circle(result, (int(round(x_values)), int(round(y_values))), 1, RED, -1)
-    cv2.line(result, tuple(map(round, p1)), tuple(map(round, p2)), RED, thickness=3)
+    curve = np.rint(curve).astype(np.int32).reshape(-1, 1, 2)
+    cv2.polylines(result, [curve], isClosed=False, color=RED, thickness=3)
 
     best_model = ransac.best_fit
     print(
-        f"Faixa detectada: y = {best_model.m:.4f}*x + {best_model.b:.4f}\n"
+        f"Faixa detectada: x = {best_model.a:.4f}*y^2 + "
+        f"{best_model.b:.4f}*y + {best_model.c:.4f}\n"
         f"({ransac.best_score}/{points.shape[0]} inliers)"
     )
     cv2.imwrite(str(out_path), result)
@@ -265,4 +249,4 @@ if __name__ == "__main__":
     output_path.mkdir(parents=True, exist_ok=True)
     output_path = output_path / f"{input_image.stem}_result_{timestamp}{input_image.suffix}"
 
-    detect_lane(input_image, output_path, ransac_k=3000, ransac_t=1.0, ransac_d=200)
+    detect_lane(input_image, output_path, ransac_k=10000, ransac_t=0.3, ransac_d=200)
