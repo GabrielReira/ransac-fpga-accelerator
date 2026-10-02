@@ -14,7 +14,7 @@ O objetivo é acelerar em hardware dedicado (Verilog) a etapa mais custosa do al
 
 Estrutura definida para realização do projeto:
 
-- [ ] **1. Aplicação em Python** — implementação de referência do RANSAC para validar o algoritmo
+- [X] **1. Aplicação em Python** — implementação de referência do RANSAC para validar o algoritmo
 - [ ] **2. Profiling em Python** — identificar os gargalos computacionais
 - [ ] **3. Python para C** — reimplementação para rodar no Nios II
 - [ ] **4. Validação do C no Nios II** — leitura de memória via *In-System Memory Content Editor* (Quartus); usa-se uma imagem reduzida para caber nas memórias internas da FPGA
