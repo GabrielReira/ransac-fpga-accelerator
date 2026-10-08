@@ -290,7 +290,7 @@ def detect_lane(
     t0 = perf_counter()
     image_bgr = cv2.imread(str(image_path))
     if image_bgr is None:
-        raise FileNotFoundError(f"Nao foi possivel abrir '{image_path}'")
+        raise FileNotFoundError(f"Nao foi possivel abrir {image_path}")
     h, w = image_bgr.shape[:2]
     t1 = perf_counter()
     profile["Carregamento imagem"] = (t1 - t0) * 1000
@@ -378,12 +378,12 @@ def imprimir_log(titulo, resultado):
     print(f"Quantidade de pontos (n): {resultado['N']}")
 
     print(f"\n=> RANSAC")
-    print(f"Amostragem: {resultado['Amostragem']:.3f} ms")
-    print(f"Estimativa do modelo: {resultado['Estimativa do modelo']:.3f} ms")
-    print(f"Avaliacao de consenso: {resultado['Avaliacao de consenso']:.3f} ms")
-    print(f"Refinamento: {resultado['Refinamento']:.3f} ms")
-    print(f"Calculo do erro: {resultado['Calculo do erro']:.3f} ms")
-    print(f"Selecao do melhor modelo: {resultado['Selecao do melhor modelo']:.3f} ms")
+    print(f"Amostragem: {resultado['Amostragem']:.3f} ms - {(resultado['Amostragem']*100/resultado['RANSAC TOTAL']):.3f}%")
+    print(f"Estimativa do modelo: {resultado['Estimativa do modelo']:.3f} ms - {(resultado['Estimativa do modelo']*100/resultado['RANSAC TOTAL']):.3f}%")
+    print(f"Avaliacao de consenso: {resultado['Avaliacao de consenso']:.3f} ms - {(resultado['Avaliacao de consenso']*100/resultado['RANSAC TOTAL']):.3f}%")
+    print(f"Refinamento: {resultado['Refinamento']:.3f} ms - {(resultado['Refinamento']*100/resultado['RANSAC TOTAL']):.3f}%")
+    print(f"Calculo do erro: {resultado['Calculo do erro']:.3f} ms - {(resultado['Calculo do erro']*100/resultado['RANSAC TOTAL']):.3f}%")
+    print(f"Selecao do melhor modelo: {resultado['Selecao do melhor modelo']:.3f} ms - {(resultado['Selecao do melhor modelo']*100/resultado['RANSAC TOTAL']):.3f}%")
     print(f"RANSAC TOTAL: {resultado['RANSAC TOTAL']:.3f} ms")
 
     print(f"\n=> Pos processamento")
@@ -475,11 +475,11 @@ if __name__ == "__main__":
     parser.add_argument("image", help="Caminho da imagem de entrada")
     args = parser.parse_args()
 
-    input_image = Path(args.image)
+    input_image = Path(args.image).resolve()
 
     # Diretório python/profiling, independente de onde o script foi executado
     script_dir = Path(__file__).resolve().parent
-    profiling_dir = script_dir / "profiling"
+    profiling_dir = script_dir / "results"
     profiling_dir.mkdir(parents=True, exist_ok=True)
     profiling_path = profiling_dir / f"{input_image.stem}.txt" # Nome do arquivo de profiling
 
@@ -491,7 +491,7 @@ if __name__ == "__main__":
             print(f"==== INICIO PREPARACAO DA EXECUCAO ==== ")
             t0 = perf_counter()
             timestamp = datetime.now().strftime("%d%m%Y%H%M%S")
-            output_path = Path(RESULT_PATH)
+            output_path = script_dir.parent / "test_images" / "profiling" / "results"
             output_path.mkdir(parents=True, exist_ok=True)
             output_path = output_path / f"{input_image.stem}_result_{timestamp}{input_image.suffix}"
             t1 = perf_counter()
