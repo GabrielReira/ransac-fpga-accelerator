@@ -44,19 +44,18 @@ definida no BSP. Para cada frame:
 5. Com status `LANE_OK`, consulte `nios_lane_result.found` e os buffers.
 
 Também é possível chamar `nios_process_rgb()` diretamente depois de
-receber o frame na sua própria rotina de UART/JTAG. Essa função devolve
-`LaneStatus`; não imprime ou grava arquivos.
+receber o frame na rotina de UART. Essa função devolve `LaneStatus`
+e não imprime ou grava arquivos.
 
 `nios_lane_mask` contém a matriz de saída. `nios_rgb` contém a imagem
 de debug com marcações vermelhas. O RGB é alterado em lugar, então cada
 novo frame deve repor todos os pixels originais. `nios_lane_result`
-contém os coeficientes, quantidade de inliers, MSE e intervalo vertical;
-`nios_point_count` contém a quantidade de pontos extraídos.
+contém os coeficientes, quantidade de inliers, MSE e intervalo vertical, 
+e por fim `nios_point_count` contém a quantidade de pontos extraídos.
 
 Se os buffers e a flag forem escritos por outro dispositivo ou pelo
 editor de memória, a integração precisa garantir coerência de cache:
 use uma região sem cache ou a manutenção apropriada de cache do BSP.
-`volatile` na flag, sozinho, não resolve a visibilidade de memória.
 Os endereços/linker script, transporte UART e configuração de memória
 são específicos do sistema criado no Platform Designer e continuam
 pendentes de validação na placa.
@@ -133,7 +132,7 @@ resolve um sistema fixo `3 × 3`, com pivotamento parcial. Não cria
 matrizes de projeto `N × 3`. Amostras degeneradas são descartadas.
 
 Cada tentativa do RANSAC sorteia três índices distintos, usando um
-xorshift32 local. A mesma seed reproduz o resultado em C; o NumPy usa
+xorshift32 local. A mesma seed reproduz o resultado em C. Porém, o NumPy usa
 outro gerador, então a mesma seed não produz as mesmas amostras.
 O threshold da configuração está em pixels. Seu quadrado é calculado
 uma única vez por chamada ao RANSAC, antes das tentativas; a comparação
