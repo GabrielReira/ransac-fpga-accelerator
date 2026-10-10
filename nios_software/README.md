@@ -29,8 +29,8 @@ Use C11 e habilite a biblioteca matemática padrão (`-lm`). Os arquivos
 Em `nios/board_config.h`, configure:
 
 ```c
-#define LANE_IMAGE_WIDTH 320
-#define LANE_IMAGE_HEIGHT 180
+#define LANE_IMAGE_WIDTH 960
+#define LANE_IMAGE_HEIGHT 540
 #define LANE_MAX_POINTS 4096
 ```
 
@@ -166,7 +166,7 @@ Em `nios/entry.c`, todos os buffers são estáticos e reutilizados:
 
 O núcleo não aloca memória durante o processamento e reutiliza os mesmos
 buffers de consenso. A configuração padrão de
-320 × 180 e 4096 pontos usa aproximadamente 321 KiB nesses buffers
+960 × 540 e 4096 pontos usa aproximadamente 321 KiB nesses buffers
 quando `double` tem 8 bytes e `size_t` tem 4 bytes, além de código, pilha
 e estruturas pequenas. Escolha a memória e o tamanho reduzido de acordo
 com o sistema configurado no BSP. O custo de `double` no Nios II ainda
@@ -191,8 +191,8 @@ Prepare o RGB no computador com o OpenCV já usado pela referência:
 
 ```bash
 mkdir -p nios_software/results
-python3 nios_software/tools/prepare_rgb.py python/test_images/solidWhiteCurve.jpg nios_software/results/frame.rgb --width 320 --height 180
-nios_software/build/lane_detect nios_software/results/frame.rgb 320 180 nios_software/results/frame --min-inliers 50 --seed 42 --thickness 7
+python3 nios_software/tools/prepare_rgb.py python/test_images/solidWhiteCurve.jpg nios_software/results/frame.rgb --width 960 --height 540
+nios_software/build/lane_detect nios_software/results/frame.rgb 960 540 nios_software/results/frame --min-inliers 50 --seed 42 --thickness 7
 ```
 
 O arquivo RGB não tem cabeçalho: contém bytes RGBRGB..., em linhas
