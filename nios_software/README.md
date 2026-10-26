@@ -165,9 +165,11 @@ Em `nios/entry.c`, todos os buffers são estáticos e reutilizados:
 
 O núcleo não aloca memória durante o processamento e reutiliza os mesmos
 buffers de consenso. A configuração padrão de
-960 × 540 e 4096 pontos usa aproximadamente 321 KiB nesses buffers
-quando `double` tem 8 bytes e `size_t` tem 4 bytes, além de código, pilha
-e estruturas pequenas. Escolha a memória e o tamanho reduzido de acordo
+960 × 540 e 4096 pontos usa aproximadamente 2,07 MiB nesses buffers
+(1,48 MiB de RGB, 506 KiB de máscara, 64 KiB de pontos e 32 KiB de
+índices) quando `double` tem 8 bytes e `size_t` tem 4 bytes, além de
+código, pilha e estruturas pequenas. Isso não cabe na memória on-chip
+nem na SRAM de 2 MB da DE2-115; o sistema da P1 usa a SDRAM. Escolha a memória e o tamanho reduzido de acordo
 com o sistema configurado no BSP. O custo de `double` no Nios II ainda
 precisa ser medido.
 
