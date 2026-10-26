@@ -1,5 +1,6 @@
 #include "lane.h"
 
+#include "lane_profile.h"
 #include "preprocess.h"
 #include <limits.h>
 
@@ -28,20 +29,24 @@ LaneStatus lane_detect_rgb(Image *image, BinaryMask *mask, const LaneConfig *con
         config->thickness == 0 || config->thickness > (size_t)INT_MAX) {
         return LANE_INVALID_ARGUMENT;
     }
+    LANE_PROFILE_BEGIN(LANE_SECTION_PREPROCESS);
     extract_paint_mask(image, mask);
     apply_default_roi(mask);
-    if (!mask_to_points(mask, workspace->points, workspace->point_capacity, point_count)) {
+    bool extracted = mask_to_points(mask, workspace->points, workspace->point_capacity,
+                                    point_count);
+    LANE_PROFILE_END(LANE_SECTION_PREPROCESS);
+    if (!extracted) {
         return LANE_POINTS_CAPACITY_EXCEEDED;
     }
     if (!ransac_fit(workspace->points, *point_count, &config->ransac,
                     &workspace->ransac, result)) {
         return LANE_RANSAC_INVALID_ARGUMENT;
     }
-    if (!render_lane_mask(result, mask, config->thickness)) {
-        return LANE_INVALID_ARGUMENT;
-    }
-    if (debug) {
+    LANE_PROFILE_BEGIN(LANE_SECTION_RENDER);
+    bool rendered = render_lane_mask(result, mask, config->thickness);
+    if (rendered && debug) {
         render_debug(image, mask, workspace->points, workspace->ransac.best_ids, result);
     }
-    return LANE_OK;
+    LANE_PROFILE_END(LANE_SECTION_RENDER);
+    return rendered ? LANE_OK : LANE_INVALID_ARGUMENT;
 }

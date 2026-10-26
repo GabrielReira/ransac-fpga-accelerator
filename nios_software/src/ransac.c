@@ -1,5 +1,6 @@
 #include "ransac.h"
 
+#include "lane_profile.h"
 #include "poly.h"
 #include <math.h>
 #include <string.h>
@@ -64,6 +65,7 @@ bool ransac_fit(const Point *points, size_t count, const RansacConfig *config,
 
     uint32_t state = config->seed == 0 ? UINT32_C(0x6d2b79f5) : config->seed;
     for (size_t iteration = 0; iteration < config->iterations; ++iteration) {
+        LANE_PROFILE_BEGIN(LANE_SECTION_SAMPLE);
         size_t sample[3];
         sample[0] = random_index(&state, count);
         do {
@@ -72,11 +74,16 @@ bool ransac_fit(const Point *points, size_t count, const RansacConfig *config,
         do {
             sample[2] = random_index(&state, count);
         } while (sample[2] == sample[0] || sample[2] == sample[1]);
+        LANE_PROFILE_END(LANE_SECTION_SAMPLE);
 
         Poly candidate;
-        if (!poly_fit(points, sample, 3, &candidate)) {
+        LANE_PROFILE_BEGIN(LANE_SECTION_MODEL);
+        bool fitted = poly_fit(points, sample, 3, &candidate);
+        LANE_PROFILE_END(LANE_SECTION_MODEL);
+        if (!fitted) {
             continue;
         }
+        LANE_PROFILE_BEGIN(LANE_SECTION_CONSENSUS);
         size_t inliers = 3;
         memcpy(workspace->candidate_ids, sample, sizeof(sample));
         /* Gargalo O(k*N): pode ser substituido pelo acelerador em Verilog. */
@@ -89,14 +96,19 @@ bool ransac_fit(const Point *points, size_t count, const RansacConfig *config,
                 workspace->candidate_ids[inliers++] = i;
             }
         }
+        LANE_PROFILE_END(LANE_SECTION_CONSENSUS);
         if (inliers < config->min_inliers) {
             continue;
         }
         /* Como no Python: ajusta uma vez sobre o consenso, sem reclassifica-lo. */
         Poly consensus_model;
-        if (!poly_fit(points, workspace->candidate_ids, inliers, &consensus_model)) {
+        LANE_PROFILE_BEGIN(LANE_SECTION_REFINE);
+        fitted = poly_fit(points, workspace->candidate_ids, inliers, &consensus_model);
+        LANE_PROFILE_END(LANE_SECTION_REFINE);
+        if (!fitted) {
             continue;
         }
+        LANE_PROFILE_BEGIN(LANE_SECTION_ERROR);
         double error = 0;
         double low = INFINITY, high = -INFINITY;
         for (size_t i = 0; i < inliers; ++i) {
@@ -113,6 +125,7 @@ bool ransac_fit(const Point *points, size_t count, const RansacConfig *config,
             memcpy(workspace->best_ids, workspace->candidate_ids,
                    inliers * sizeof(*workspace->best_ids));
         }
+        LANE_PROFILE_END(LANE_SECTION_ERROR);
     }
     return true;
 }
