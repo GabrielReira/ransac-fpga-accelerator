@@ -2,3 +2,20 @@
 __pycache__/
 nios_software/build/
 nios_software/results/
+
+
+# Quartus e Platform Designer
+/quartus/**/.qsys_edit/
+/quartus/**/db/
+/quartus/**/incremental_db/
+/quartus/**/output_files/
+/quartus/RANSAC_NIOS/nios_consensus/
+/quartus/RANSAC_NIOS/nios_consensus.sopcinfo
+
+# ModelSim e backups de edição
+/quartus/**/work/
+/quartus/**/modelsim.ini
+/quartus/**/transcript
+/quartus/**/*.wlf
+/quartus/**/*.bak
+/verilog/**/*.bak

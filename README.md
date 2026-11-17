@@ -23,6 +23,10 @@ Estrutura definida para realização do projeto:
 - [ ] **7. Comunicação UART** — integração entre o host Python e o sistema embarcado (Nios II + Verilog) via Platform Designer
 - [ ] **8. Algoritmo comparador (Python)** — validação final comparando as imagens produzidas pelo algoritmo Python de referência com as imagens obtidas da implementação completa em FPGA
 
+Observação:
+Item **5. Acelerador em Verilog** já sintetizado no Quartus e simulado no ModelSim, mas integração ao Nios II via Platform Designer pendente.
+O .sof gerado carrega o sistema base do Nios II. A aplicação C é compilada e carregada separadamente. O teste na DE2-115 está pendente.
+
 ## Estrutura do repositório
 
 ```
@@ -68,6 +72,15 @@ nios_software/build/lane_detect nios_software/results/solidWhiteCurve.rgb 960 54
 ```
 
 O teste host grava a matriz (`_mask.bin`, um byte `0/1` por pixel), a imagem de debug (`_debug.ppm`, sem compressão) e os metadados (`_model.json`). A espessura é configurável; o modelo continua sendo uma única parábola entre a menor e a maior altura dos inliers. Os scripts Python são ferramentas do computador, usando o OpenCV já empregado pela referência, e não são executados no Nios II.
+
+## Compilar o projeto no Quartus
+
+O projeto `RANSAC_NIOS` contém o sistema base com Nios II, memória interna e JTAG UART. Foi compilado no **Quartus Prime Lite 20.1.1 (build 720)** para a placa **DE2-115**, com o FPGA `EP4CE115F29C7`.
+
+1. No Quartus, abra `quartus/RANSAC_NIOS/consensus_lab.qpf` em **File → Open Project**.
+2. Abra **Tools → Platform Designer** e carregue `quartus/RANSAC_NIOS/nios_consensus.qsys`. Clique em **Generate HDL** e selecione **Verilog** para síntese. Esse passo recria os arquivos gerados que ficam fora do Git.
+3. Volte ao Quartus, confira se `de2_115_top` está selecionado como _top-level_ e rode **Processing → Start Compilation**.
+4. Com a DE2-115 ligada, a chave **SW19** em **RUN** e o cabo na porta **USB Blaster**, abra **Tools → Programmer**, selecione **USB-Blaster** e use o modo **JTAG**. Carregue `quartus/RANSAC_NIOS/output_files/consensus_lab.sof`, marque **Program/Configure** e clique em **Start**.
 
 Veja [nios_software/README.md](nios_software/README.md) para a organização dos módulos, parâmetros, testes e uso dos buffers no Nios II.
 
