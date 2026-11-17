@@ -1,259 +1,259 @@
 ==== INICIO PREPARACAO DA EXECUCAO ==== 
-Tempo PREPARACAO DA EXECUCAO : 0.314 ms
-Faixa detectada: y = -0.7410*x + 668.3347 (437/3634 inliers)
+Tempo PREPARACAO DA EXECUCAO : 0.320 ms
+Faixa detectada: x = 0.0001*y^2 + -1.3514*y + 894.8325 (195/726 inliers)
 
-==== Cenário padrão (K = 3000 | N = 3634 | D = 200) ====
+==== Cenário padrão (K = 3000 | N = 726 | D = 50) ====
 => Pipeline 
-Carregamento imagem: 10.232 ms
-Conversao GRAYSCALE: 5.083 ms
-Extracao de pontos: 4.415 ms
-
-=> Parametros
-Iterações (k): 3000
-Threshold (t): 1.0
-Inliers (d): 200
-Quantidade de pontos (n): 3634
-
-=> RANSAC
-Amostragem: 204.913 ms - 35.459%
-Estimativa do modelo: 240.413 ms - 41.602%
-Avaliacao de consenso: 104.270 ms - 18.043%
-Refinamento: 18.221 ms - 3.153%
-Calculo do erro: 6.929 ms - 1.199%
-Selecao do melhor modelo: 0.126 ms - 0.022%
-RANSAC TOTAL: 577.894 ms
-
-=> Pos processamento
-Geracao resultado: 0.000 ms
-Geracao imagem resultado: 2.050 ms
-Exibicao e salvamento do resultado: 1.945 ms
-
-PIPELINE TOTAL: 601.984 ms
-Faixa detectada: y = -0.7415*x + 668.3925 (436/3634 inliers)
-Faixa detectada: y = -0.7415*x + 668.3925 (436/3634 inliers)
-Faixa detectada: y = -0.7415*x + 668.3925 (436/3634 inliers)
-Faixa detectada: y = -0.7415*x + 668.3925 (436/3634 inliers)
-Faixa detectada: y = -0.7415*x + 668.3925 (436/3634 inliers)
-Faixa detectada: y = -0.7415*x + 668.3925 (436/3634 inliers)
-Faixa detectada: y = -0.7415*x + 668.3925 (436/3634 inliers)
-Faixa detectada: y = -0.7415*x + 668.3925 (436/3634 inliers)
-Faixa detectada: y = -0.7415*x + 668.3925 (436/3634 inliers)
-Faixa detectada: y = -0.7415*x + 668.3925 (436/3634 inliers)
-
-==== MEDIA 10 repeticoes (K = 1500 | N = None | D = 200) ====
-=> Pipeline 
-Carregamento imagem: 5.294 ms
-Conversao GRAYSCALE: 0.167 ms
-Extracao de pontos: 3.395 ms
-
-=> Parametros
-Iterações (k): 1500
-Threshold (t): 1.0
-Inliers (d): 200
-Quantidade de pontos (n): 3634
-
-=> RANSAC
-Amostragem: 88.418 ms - 38.828%
-Estimativa do modelo: 88.109 ms - 38.693%
-Avaliacao de consenso: 40.192 ms - 17.650%
-Refinamento: 7.180 ms - 3.153%
-Calculo do erro: 2.602 ms - 1.143%
-Selecao do melhor modelo: 0.051 ms - 0.023%
-RANSAC TOTAL: 227.715 ms
-
-=> Pos processamento
-Geracao resultado: 0.000 ms
-Geracao imagem resultado: 1.957 ms
-Exibicao e salvamento do resultado: 1.958 ms
-
-PIPELINE TOTAL: 240.815 ms
-Faixa detectada: y = -0.7411*x + 668.3419 (438/3634 inliers)
-Faixa detectada: y = -0.7411*x + 668.3419 (438/3634 inliers)
-Faixa detectada: y = -0.7411*x + 668.3419 (438/3634 inliers)
-Faixa detectada: y = -0.7411*x + 668.3419 (438/3634 inliers)
-Faixa detectada: y = -0.7411*x + 668.3419 (438/3634 inliers)
-Faixa detectada: y = -0.7411*x + 668.3419 (438/3634 inliers)
-Faixa detectada: y = -0.7411*x + 668.3419 (438/3634 inliers)
-Faixa detectada: y = -0.7411*x + 668.3419 (438/3634 inliers)
-Faixa detectada: y = -0.7411*x + 668.3419 (438/3634 inliers)
-Faixa detectada: y = -0.7411*x + 668.3419 (438/3634 inliers)
-
-==== MEDIA 10 repeticoes (K = 6000 | N = None | D = 200) ====
-=> Pipeline 
-Carregamento imagem: 5.082 ms
-Conversao GRAYSCALE: 0.150 ms
-Extracao de pontos: 3.056 ms
-
-=> Parametros
-Iterações (k): 6000
-Threshold (t): 1.0
-Inliers (d): 200
-Quantidade de pontos (n): 3634
-
-=> RANSAC
-Amostragem: 349.134 ms - 38.601%
-Estimativa do modelo: 353.728 ms - 39.109%
-Avaliacao de consenso: 158.598 ms - 17.535%
-Refinamento: 28.289 ms - 3.128%
-Calculo do erro: 10.174 ms - 1.125%
-Selecao do melhor modelo: 0.205 ms - 0.023%
-RANSAC TOTAL: 904.467 ms
-
-=> Pos processamento
-Geracao resultado: 0.000 ms
-Geracao imagem resultado: 1.889 ms
-Exibicao e salvamento do resultado: 1.983 ms
-
-PIPELINE TOTAL: 916.902 ms
-Faixa detectada: y = -0.7411*x + 668.3419 (438/3634 inliers)
-Faixa detectada: y = -0.7411*x + 668.3419 (438/3634 inliers)
-Faixa detectada: y = -0.7411*x + 668.3419 (438/3634 inliers)
-Faixa detectada: y = -0.7411*x + 668.3419 (438/3634 inliers)
-Faixa detectada: y = -0.7411*x + 668.3419 (438/3634 inliers)
-Faixa detectada: y = -0.7411*x + 668.3419 (438/3634 inliers)
-Faixa detectada: y = -0.7411*x + 668.3419 (438/3634 inliers)
-Faixa detectada: y = -0.7411*x + 668.3419 (438/3634 inliers)
-Faixa detectada: y = -0.7411*x + 668.3419 (438/3634 inliers)
-Faixa detectada: y = -0.7411*x + 668.3419 (438/3634 inliers)
-
-==== MEDIA 10 repeticoes (K = 9000 | N = None | D = 200) ====
-=> Pipeline 
-Carregamento imagem: 5.027 ms
-Conversao GRAYSCALE: 0.177 ms
-Extracao de pontos: 3.183 ms
-
-=> Parametros
-Iterações (k): 9000
-Threshold (t): 1.0
-Inliers (d): 200
-Quantidade de pontos (n): 3634
-
-=> RANSAC
-Amostragem: 524.792 ms - 38.610%
-Estimativa do modelo: 533.169 ms - 39.227%
-Avaliacao de consenso: 239.910 ms - 17.651%
-Refinamento: 40.200 ms - 2.958%
-Calculo do erro: 14.376 ms - 1.058%
-Selecao do melhor modelo: 0.281 ms - 0.021%
-RANSAC TOTAL: 1359.202 ms
-
-=> Pos processamento
-Geracao resultado: 0.000 ms
-Geracao imagem resultado: 1.837 ms
-Exibicao e salvamento do resultado: 18.338 ms
-
-PIPELINE TOTAL: 1388.071 ms
-Faixa detectada: y = -0.7912*x + 693.2548 (117/908 inliers)
-Faixa detectada: y = -0.7912*x + 693.2548 (117/908 inliers)
-Faixa detectada: y = -0.7912*x + 693.2548 (117/908 inliers)
-Faixa detectada: y = -0.7912*x + 693.2548 (117/908 inliers)
-Faixa detectada: y = -0.7912*x + 693.2548 (117/908 inliers)
-Faixa detectada: y = -0.7912*x + 693.2548 (117/908 inliers)
-Faixa detectada: y = -0.7912*x + 693.2548 (117/908 inliers)
-Faixa detectada: y = -0.7912*x + 693.2548 (117/908 inliers)
-Faixa detectada: y = -0.7912*x + 693.2548 (117/908 inliers)
-Faixa detectada: y = -0.7912*x + 693.2548 (117/908 inliers)
-
-==== MEDIA 10 repeticoes (K = 3000 | N = 908 | D = 50) ====
-=> Pipeline 
-Carregamento imagem: 4.849 ms
-Conversao GRAYSCALE: 0.192 ms
-Extracao de pontos: 3.285 ms
+Carregamento imagem: 5.740 ms
+Mascara de tinta: 7.337 ms
+Extracao de pontos: 3.485 ms
 
 => Parametros
 Iterações (k): 3000
 Threshold (t): 1.0
 Inliers (d): 50
-Quantidade de pontos (n): 908
+Quantidade de pontos (n): 726
 
 => RANSAC
-Amostragem: 57.143 ms - 18.984%
-Estimativa do modelo: 177.291 ms - 58.901%
-Avaliacao de consenso: 47.824 ms - 15.888%
-Refinamento: 12.279 ms - 4.079%
-Calculo do erro: 4.255 ms - 1.414%
-Selecao do melhor modelo: 0.090 ms - 0.030%
-RANSAC TOTAL: 301.001 ms
+Amostragem: 55.529 ms - 13.562%
+Estimativa do modelo: 238.035 ms - 58.134%
+Avaliacao de consenso: 77.840 ms - 19.011%
+Refinamento: 27.288 ms - 6.664%
+Calculo do erro: 7.877 ms - 1.924%
+Selecao do melhor modelo: 0.145 ms - 0.035%
+RANSAC TOTAL: 409.459 ms
 
 => Pos processamento
-Geracao resultado: 0.000 ms
-Geracao imagem resultado: 0.757 ms
-Exibicao e salvamento do resultado: 1.978 ms
+Geracao resultado: 0.067 ms
+Geracao imagem resultado: 1.018 ms
+Exibicao e salvamento do resultado: 1.850 ms
 
-PIPELINE TOTAL: 312.327 ms
-Faixa detectada: y = -0.7420*x + 668.5128 (226/1817 inliers)
-Faixa detectada: y = -0.7420*x + 668.5128 (226/1817 inliers)
-Faixa detectada: y = -0.7420*x + 668.5128 (226/1817 inliers)
-Faixa detectada: y = -0.7420*x + 668.5128 (226/1817 inliers)
-Faixa detectada: y = -0.7420*x + 668.5128 (226/1817 inliers)
-Faixa detectada: y = -0.7420*x + 668.5128 (226/1817 inliers)
-Faixa detectada: y = -0.7420*x + 668.5128 (226/1817 inliers)
-Faixa detectada: y = -0.7420*x + 668.5128 (226/1817 inliers)
-Faixa detectada: y = -0.7420*x + 668.5128 (226/1817 inliers)
-Faixa detectada: y = -0.7420*x + 668.5128 (226/1817 inliers)
+PIPELINE TOTAL: 429.150 ms
+Faixa detectada: x = 0.0001*y^2 + -1.3514*y + 894.8325 (195/726 inliers)
+Faixa detectada: x = 0.0001*y^2 + -1.3514*y + 894.8325 (195/726 inliers)
+Faixa detectada: x = 0.0001*y^2 + -1.3514*y + 894.8325 (195/726 inliers)
+Faixa detectada: x = 0.0001*y^2 + -1.3514*y + 894.8325 (195/726 inliers)
+Faixa detectada: x = 0.0001*y^2 + -1.3514*y + 894.8325 (195/726 inliers)
+Faixa detectada: x = 0.0001*y^2 + -1.3514*y + 894.8325 (195/726 inliers)
+Faixa detectada: x = 0.0001*y^2 + -1.3514*y + 894.8325 (195/726 inliers)
+Faixa detectada: x = 0.0001*y^2 + -1.3514*y + 894.8325 (195/726 inliers)
+Faixa detectada: x = 0.0001*y^2 + -1.3514*y + 894.8325 (195/726 inliers)
+Faixa detectada: x = 0.0001*y^2 + -1.3514*y + 894.8325 (195/726 inliers)
 
-==== MEDIA 10 repeticoes (K = 3000 | N = 1817 | D = 100) ====
+==== MEDIA 10 repeticoes (K = 1500 | N = None | D = 50) ====
 => Pipeline 
-Carregamento imagem: 4.887 ms
-Conversao GRAYSCALE: 0.146 ms
-Extracao de pontos: 3.129 ms
+Carregamento imagem: 5.008 ms
+Mascara de tinta: 1.295 ms
+Extracao de pontos: 3.155 ms
+
+=> Parametros
+Iterações (k): 1500
+Threshold (t): 1.0
+Inliers (d): 50
+Quantidade de pontos (n): 726
+
+=> RANSAC
+Amostragem: 27.792 ms - 13.442%
+Estimativa do modelo: 119.873 ms - 57.980%
+Avaliacao de consenso: 39.870 ms - 19.284%
+Refinamento: 13.736 ms - 6.644%
+Calculo do erro: 4.002 ms - 1.936%
+Selecao do melhor modelo: 0.078 ms - 0.038%
+RANSAC TOTAL: 206.747 ms
+
+=> Pos processamento
+Geracao resultado: 0.058 ms
+Geracao imagem resultado: 1.065 ms
+Exibicao e salvamento do resultado: 29.755 ms
+
+PIPELINE TOTAL: 247.322 ms
+Faixa detectada: x = 0.0001*y^2 + -1.3514*y + 894.8325 (195/726 inliers)
+Faixa detectada: x = 0.0001*y^2 + -1.3514*y + 894.8325 (195/726 inliers)
+Faixa detectada: x = 0.0001*y^2 + -1.3514*y + 894.8325 (195/726 inliers)
+Faixa detectada: x = 0.0001*y^2 + -1.3514*y + 894.8325 (195/726 inliers)
+Faixa detectada: x = 0.0001*y^2 + -1.3514*y + 894.8325 (195/726 inliers)
+Faixa detectada: x = 0.0001*y^2 + -1.3514*y + 894.8325 (195/726 inliers)
+Faixa detectada: x = 0.0001*y^2 + -1.3514*y + 894.8325 (195/726 inliers)
+Faixa detectada: x = 0.0001*y^2 + -1.3514*y + 894.8325 (195/726 inliers)
+Faixa detectada: x = 0.0001*y^2 + -1.3514*y + 894.8325 (195/726 inliers)
+Faixa detectada: x = 0.0001*y^2 + -1.3514*y + 894.8325 (195/726 inliers)
+
+==== MEDIA 10 repeticoes (K = 6000 | N = None | D = 50) ====
+=> Pipeline 
+Carregamento imagem: 5.252 ms
+Mascara de tinta: 1.512 ms
+Extracao de pontos: 3.482 ms
+
+=> Parametros
+Iterações (k): 6000
+Threshold (t): 1.0
+Inliers (d): 50
+Quantidade de pontos (n): 726
+
+=> RANSAC
+Amostragem: 110.770 ms - 13.303%
+Estimativa do modelo: 485.879 ms - 58.353%
+Avaliacao de consenso: 160.703 ms - 19.300%
+Refinamento: 53.928 ms - 6.477%
+Calculo do erro: 15.732 ms - 1.889%
+Selecao do melhor modelo: 0.291 ms - 0.035%
+RANSAC TOTAL: 832.650 ms
+
+=> Pos processamento
+Geracao resultado: 0.057 ms
+Geracao imagem resultado: 1.062 ms
+Exibicao e salvamento do resultado: 1.991 ms
+
+PIPELINE TOTAL: 846.205 ms
+Faixa detectada: x = 0.0001*y^2 + -1.3396*y + 892.1840 (196/726 inliers)
+Faixa detectada: x = 0.0001*y^2 + -1.3396*y + 892.1840 (196/726 inliers)
+Faixa detectada: x = 0.0001*y^2 + -1.3396*y + 892.1840 (196/726 inliers)
+Faixa detectada: x = 0.0001*y^2 + -1.3396*y + 892.1840 (196/726 inliers)
+Faixa detectada: x = 0.0001*y^2 + -1.3396*y + 892.1840 (196/726 inliers)
+Faixa detectada: x = 0.0001*y^2 + -1.3396*y + 892.1840 (196/726 inliers)
+Faixa detectada: x = 0.0001*y^2 + -1.3396*y + 892.1840 (196/726 inliers)
+Faixa detectada: x = 0.0001*y^2 + -1.3396*y + 892.1840 (196/726 inliers)
+Faixa detectada: x = 0.0001*y^2 + -1.3396*y + 892.1840 (196/726 inliers)
+Faixa detectada: x = 0.0001*y^2 + -1.3396*y + 892.1840 (196/726 inliers)
+
+==== MEDIA 10 repeticoes (K = 9000 | N = None | D = 50) ====
+=> Pipeline 
+Carregamento imagem: 5.126 ms
+Mascara de tinta: 1.398 ms
+Extracao de pontos: 3.263 ms
+
+=> Parametros
+Iterações (k): 9000
+Threshold (t): 1.0
+Inliers (d): 50
+Quantidade de pontos (n): 726
+
+=> RANSAC
+Amostragem: 164.313 ms - 13.393%
+Estimativa do modelo: 713.000 ms - 58.115%
+Avaliacao de consenso: 236.286 ms - 19.259%
+Refinamento: 81.551 ms - 6.647%
+Calculo do erro: 23.525 ms - 1.917%
+Selecao do melhor modelo: 0.447 ms - 0.036%
+RANSAC TOTAL: 1226.886 ms
+
+=> Pos processamento
+Geracao resultado: 0.056 ms
+Geracao imagem resultado: 1.060 ms
+Exibicao e salvamento do resultado: 2.029 ms
+
+PIPELINE TOTAL: 1240.008 ms
+Faixa detectada: x = 0.0001*y^2 + -1.3341*y + 891.3193 (52/182 inliers)
+Faixa detectada: x = 0.0001*y^2 + -1.3341*y + 891.3193 (52/182 inliers)
+Faixa detectada: x = 0.0001*y^2 + -1.3341*y + 891.3193 (52/182 inliers)
+Faixa detectada: x = 0.0001*y^2 + -1.3341*y + 891.3193 (52/182 inliers)
+Faixa detectada: x = 0.0001*y^2 + -1.3341*y + 891.3193 (52/182 inliers)
+Faixa detectada: x = 0.0001*y^2 + -1.3341*y + 891.3193 (52/182 inliers)
+Faixa detectada: x = 0.0001*y^2 + -1.3341*y + 891.3193 (52/182 inliers)
+Faixa detectada: x = 0.0001*y^2 + -1.3341*y + 891.3193 (52/182 inliers)
+Faixa detectada: x = 0.0001*y^2 + -1.3341*y + 891.3193 (52/182 inliers)
+Faixa detectada: x = 0.0001*y^2 + -1.3341*y + 891.3193 (52/182 inliers)
+
+==== MEDIA 10 repeticoes (K = 3000 | N = 182 | D = 13) ====
+=> Pipeline 
+Carregamento imagem: 5.222 ms
+Mascara de tinta: 1.403 ms
+Extracao de pontos: 3.501 ms
 
 => Parametros
 Iterações (k): 3000
 Threshold (t): 1.0
-Inliers (d): 100
-Quantidade de pontos (n): 1817
+Inliers (d): 13
+Quantidade de pontos (n): 182
 
 => RANSAC
-Amostragem: 95.243 ms - 27.613%
-Estimativa do modelo: 171.525 ms - 49.729%
-Avaliacao de consenso: 58.148 ms - 16.859%
-Refinamento: 13.178 ms - 3.820%
-Calculo do erro: 4.629 ms - 1.342%
-Selecao do melhor modelo: 0.096 ms - 0.028%
-RANSAC TOTAL: 344.917 ms
+Amostragem: 27.539 ms - 7.479%
+Estimativa do modelo: 231.430 ms - 62.849%
+Avaliacao de consenso: 62.764 ms - 17.045%
+Refinamento: 33.947 ms - 9.219%
+Calculo do erro: 9.746 ms - 2.647%
+Selecao do melhor modelo: 0.199 ms - 0.054%
+RANSAC TOTAL: 368.232 ms
 
 => Pos processamento
-Geracao resultado: 0.000 ms
-Geracao imagem resultado: 1.110 ms
-Exibicao e salvamento do resultado: 5.413 ms
+Geracao resultado: 0.053 ms
+Geracao imagem resultado: 0.512 ms
+Exibicao e salvamento do resultado: 16.715 ms
 
-PIPELINE TOTAL: 359.939 ms
-Faixa detectada: y = -0.7388*x + 667.6496 (317/2726 inliers)
-Faixa detectada: y = -0.7388*x + 667.6496 (317/2726 inliers)
-Faixa detectada: y = -0.7388*x + 667.6496 (317/2726 inliers)
-Faixa detectada: y = -0.7388*x + 667.6496 (317/2726 inliers)
-Faixa detectada: y = -0.7388*x + 667.6496 (317/2726 inliers)
-Faixa detectada: y = -0.7388*x + 667.6496 (317/2726 inliers)
-Faixa detectada: y = -0.7388*x + 667.6496 (317/2726 inliers)
-Faixa detectada: y = -0.7388*x + 667.6496 (317/2726 inliers)
-Faixa detectada: y = -0.7388*x + 667.6496 (317/2726 inliers)
-Faixa detectada: y = -0.7388*x + 667.6496 (317/2726 inliers)
+PIPELINE TOTAL: 395.821 ms
+Faixa detectada: x = 0.0003*y^2 + -1.5769*y + 953.8324 (100/363 inliers)
+Faixa detectada: x = 0.0003*y^2 + -1.5769*y + 953.8324 (100/363 inliers)
+Faixa detectada: x = 0.0003*y^2 + -1.5769*y + 953.8324 (100/363 inliers)
+Faixa detectada: x = 0.0003*y^2 + -1.5769*y + 953.8324 (100/363 inliers)
+Faixa detectada: x = 0.0003*y^2 + -1.5769*y + 953.8324 (100/363 inliers)
+Faixa detectada: x = 0.0003*y^2 + -1.5769*y + 953.8324 (100/363 inliers)
+Faixa detectada: x = 0.0003*y^2 + -1.5769*y + 953.8324 (100/363 inliers)
+Faixa detectada: x = 0.0003*y^2 + -1.5769*y + 953.8324 (100/363 inliers)
+Faixa detectada: x = 0.0003*y^2 + -1.5769*y + 953.8324 (100/363 inliers)
+Faixa detectada: x = 0.0003*y^2 + -1.5769*y + 953.8324 (100/363 inliers)
 
-==== MEDIA 10 repeticoes (K = 3000 | N = 2726 | D = 150) ====
+==== MEDIA 10 repeticoes (K = 3000 | N = 363 | D = 25) ====
 => Pipeline 
-Carregamento imagem: 5.006 ms
-Conversao GRAYSCALE: 0.165 ms
-Extracao de pontos: 3.254 ms
+Carregamento imagem: 5.114 ms
+Mascara de tinta: 1.384 ms
+Extracao de pontos: 3.461 ms
 
 => Parametros
 Iterações (k): 3000
 Threshold (t): 1.0
-Inliers (d): 150
-Quantidade de pontos (n): 2726
+Inliers (d): 25
+Quantidade de pontos (n): 363
 
 => RANSAC
-Amostragem: 137.447 ms - 34.575%
-Estimativa do modelo: 171.447 ms - 43.128%
-Avaliacao de consenso: 69.065 ms - 17.373%
-Refinamento: 12.793 ms - 3.218%
-Calculo do erro: 4.556 ms - 1.146%
-Selecao do melhor modelo: 0.124 ms - 0.031%
-RANSAC TOTAL: 397.533 ms
+Amostragem: 37.118 ms - 9.700%
+Estimativa do modelo: 236.847 ms - 61.892%
+Avaliacao de consenso: 67.090 ms - 17.532%
+Refinamento: 30.182 ms - 7.887%
+Calculo do erro: 8.644 ms - 2.259%
+Selecao do melhor modelo: 0.169 ms - 0.044%
+RANSAC TOTAL: 382.675 ms
 
 => Pos processamento
-Geracao resultado: 0.000 ms
-Geracao imagem resultado: 1.436 ms
-Exibicao e salvamento do resultado: 1.998 ms
+Geracao resultado: 0.053 ms
+Geracao imagem resultado: 0.698 ms
+Exibicao e salvamento do resultado: 14.648 ms
 
-PIPELINE TOTAL: 409.682 ms
+PIPELINE TOTAL: 408.214 ms
+Faixa detectada: x = 0.0001*y^2 + -1.3317*y + 890.6565 (147/544 inliers)
+Faixa detectada: x = 0.0001*y^2 + -1.3317*y + 890.6565 (147/544 inliers)
+Faixa detectada: x = 0.0001*y^2 + -1.3317*y + 890.6565 (147/544 inliers)
+Faixa detectada: x = 0.0001*y^2 + -1.3317*y + 890.6565 (147/544 inliers)
+Faixa detectada: x = 0.0001*y^2 + -1.3317*y + 890.6565 (147/544 inliers)
+Faixa detectada: x = 0.0001*y^2 + -1.3317*y + 890.6565 (147/544 inliers)
+Faixa detectada: x = 0.0001*y^2 + -1.3317*y + 890.6565 (147/544 inliers)
+Faixa detectada: x = 0.0001*y^2 + -1.3317*y + 890.6565 (147/544 inliers)
+Faixa detectada: x = 0.0001*y^2 + -1.3317*y + 890.6565 (147/544 inliers)
+Faixa detectada: x = 0.0001*y^2 + -1.3317*y + 890.6565 (147/544 inliers)
+
+==== MEDIA 10 repeticoes (K = 3000 | N = 544 | D = 37) ====
+=> Pipeline 
+Carregamento imagem: 5.179 ms
+Mascara de tinta: 1.253 ms
+Extracao de pontos: 3.362 ms
+
+=> Parametros
+Iterações (k): 3000
+Threshold (t): 1.0
+Inliers (d): 37
+Quantidade de pontos (n): 544
+
+=> RANSAC
+Amostragem: 45.632 ms - 11.341%
+Estimativa do modelo: 241.887 ms - 60.115%
+Avaliacao de consenso: 74.939 ms - 18.624%
+Refinamento: 28.865 ms - 7.174%
+Calculo do erro: 8.255 ms - 2.052%
+Selecao do melhor modelo: 0.168 ms - 0.042%
+RANSAC TOTAL: 402.372 ms
+
+=> Pos processamento
+Geracao resultado: 0.055 ms
+Geracao imagem resultado: 0.876 ms
+Exibicao e salvamento do resultado: 1.985 ms
+
+PIPELINE TOTAL: 415.311 ms

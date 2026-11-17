@@ -1,17 +1,3 @@
-"""
-Deteccao de faixa de rodovia via extracao de bordas (Canny) + RANSAC.
-
-Pipeline:
-    imagem (BGR) -> escala de cinza -> bordas (Canny) -> ROI (remove
-    ceu/horizonte/fundo) -> nuvem de pontos (x, y) -> RANSAC (ajuste de
-    reta y = m*x + b) -> imagem original com a faixa marcada em
-    vermelho, restrita ao trecho coberto pelos pontos inliers.
-
-Uso:
-    python ransac.py caminho/da/imagem.jpg
-
-O resultado eh salvo em test_images/results/<nome_imagem>_result_<timestamp>.png
-"""
 
 import argparse
 from copy import copy
@@ -25,8 +11,20 @@ import sys
 from contextlib import redirect_stdout
 from statistics import mean
 
-SEED = 42
-RED = (0, 0, 255)
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from ransac import (
+    RED,
+    SEED,
+    PolynomialRegressor,
+    apply_roi,
+    default_roi_vertices,
+    extract_paint_mask,
+    mask_to_points,
+    mean_square_error,
+    square_error_loss,
+)
+
 RESULT_PATH = Path("test_images/results")
 
 DEFAULT_K = 3000
@@ -48,119 +46,18 @@ class Tee:
         for stream in self.streams:
             stream.flush()
 
-# ----------------------------------------------------------------------
-# 1. Extracao de bordas (Canny) e conversao para nuvem de pontos
-# ----------------------------------------------------------------------
-def extract_edges(gray, canny_low=50, canny_high=150):
-    """Aplica Canny e retorna a mascara binaria de bordas (mesma
-    resolucao da imagem de entrada)."""
-    return cv2.Canny(gray, canny_low, canny_high)
-
-
-def edges_to_points(edges):
-    """Converte uma mascara binaria de bordas num array (N, 2) de
-    coordenadas (x, y) dos pixels de borda."""
-    ys, xs = np.nonzero(edges)
-    return np.column_stack([xs, ys]).astype(np.float64)
-
-
-# ----------------------------------------------------------------------
-# 1b. Region of interest (ROI)
-# ----------------------------------------------------------------------
-def default_roi_vertices(w, h):
-    """Vertices de um trapezio cobrindo a parte inferior da imagem: da
-    altura h*0.55 ate a base, estreitando nas laterais. Representa a
-    regiao da pista. Tudo FORA desse trapezio (ceu, horizonte,
-    arvores, muros ao fundo) fica fora do ROI."""
-    return np.array([[
-        (int(0.02 * w), h - 1),
-        (int(0.40 * w), int(0.55 * h)),
-        (int(0.60 * w), int(0.55 * h)),
-        (int(0.98 * w), h - 1),
-    ]], dtype=np.int32)
-
-
-def apply_roi(edges, vertices):
-    """Zera todo pixel de 'edges' que esta FORA do poligono 'vertices'.
-    So o que sobra dentro do poligono alimenta o RANSAC."""
-    mask = np.zeros_like(edges)
-    cv2.fillPoly(mask, vertices, 255)
-    return cv2.bitwise_and(edges, mask)
-
-
-# ----------------------------------------------------------------------
-# 2. Modelo de regressao linear (y = m*x + b)
-# ----------------------------------------------------------------------
-class LinearRegressor:
-    def __init__(self):
-        self.params = None
-        self.m = self.b = None
-
-    def fit(self, X, y):
-        X = np.asarray(X, dtype=np.float64)
-        y = np.asarray(y, dtype=np.float64)
-        if X.ndim == 1:
-            X = X.reshape(-1, 1)
-        rows = X.shape[0]
-        X = np.hstack([np.ones((rows, 1)), X])
-        # Rejeita amostras em que nao eh possivel estimar uma reta
-        # Ex: quando os 2 pontos sorteados possuem exatamente o mesmo x
-        if np.linalg.matrix_rank(X) < X.shape[1]:
-            raise ValueError("Nao foi possivel estimar uma reta a partir da amostra")
-        self.params = np.linalg.inv(X.T @ X) @ X.T @ y
-        self.b = self.params[0]
-        self.m = self.params[1]
-        return self
-
-    def predict(self, X):
-        X = np.asarray(X, dtype=np.float64)
-        if X.ndim == 1:
-            X = X.reshape(-1, 1)
-        rows = X.shape[0]
-        X = np.hstack([np.ones((rows, 1)), X])
-        return X @ self.params
-
-    def angle_deg(self):
-        """Inclinacao da reta em relacao a horizontal, em graus.
-        0 = horizontal, 90 = vertical."""
-        slope = self.params[1]
-        return np.degrees(np.arctan(abs(slope)))
-
-    def segment_from_inliers(self, inlier_points):
-        """
-        Retorna o segmento entre o menor e o maior x dos pontos inliers.
-        Nao extrapola alem da evidencia encontrada pelo RANSAC.
-        """
-        x_min = np.min(inlier_points[:, 0])
-        x_max = np.max(inlier_points[:, 0])
-        y_min = self.predict(np.array([[x_min]]))[0]
-        y_max = self.predict(np.array([[x_max]]))[0]
-        return (x_min, y_min), (x_max, y_max)
-
-
-# ----------------------------------------------------------------------
-# 2b. Funcoes de perda e metrica
-# ----------------------------------------------------------------------
-def square_error_loss(y_true, y_pred):
-    return (y_true - y_pred) ** 2
-
-
-def mean_square_error(y_true, y_pred):
-    return np.sum(square_error_loss(y_true, y_pred)) / y_true.shape[0]
-
 
 # ----------------------------------------------------------------------
 # 3. RANSAC (adaptado do esqueleto da Wikipedia para pontos 2D)
 #    https://en.wikipedia.org/wiki/Random_sample_consensus
 # ----------------------------------------------------------------------
 class RANSAC:
-    def __init__(self,n=2,k=100,t=0.5,d=50,model=None,filter=None,loss=None,metric=None,seed=SEED):
+    def __init__(self,n=2,k=100,t=0.5,d=50,model=None,loss=None,metric=None,seed=SEED):
         self.n = n            # pontos minimos para instanciar o modelo (2 para reta)
         self.k = k            # numero maximo de iteracoes
         self.t = t            # limiar de distancia (px) para considerar inlier
         self.d = d            # minimo de inliers para o modelo ser considerado valido
         self.model = model    # modelo para explicar os pontos observados
-        self.filter = filter  # descarta modelos implausiveis (ex: quase horizontais)
         self.loss = loss      # funcao de perda para avaliar a qualidade do modelo 
         self.metric = metric  # metrica para avaliar a qualidade do modelo
         self.seed = seed      # fixa o resultado entre execucoes
@@ -182,10 +79,8 @@ class RANSAC:
         tCalculoErro = 0;
         tSelecaoMelhorModelo = 0;
 
-        if n_points < self.n:
-            return self
-        
-        for _ in range(self.k):
+        iterations = self.k if n_points >= self.n else 0
+        for _ in range(iterations):
 
             t0 = perf_counter(); # Amostragem
             ids = rng.permutation(n_points)
@@ -202,10 +97,6 @@ class RANSAC:
             except (np.linalg.LinAlgError, ValueError):
                 tEstimativaModelo += perf_counter() - t1
                 continue  # amostra nao permite estimar uma reta
-
-            if self.filter and not self.filter(maybe_model):
-                tEstimativaModelo += perf_counter() - t1
-                continue  # descarta modelos sem calcular inliers
 
             tEstimativaModelo += perf_counter() - t1
 
@@ -228,10 +119,6 @@ class RANSAC:
             except (np.linalg.LinAlgError, ValueError):
                 tRefinamento += perf_counter() - t3
                 continue
-
-            if self.filter and not self.filter(refined_model):
-                tRefinamento += perf_counter() - t3
-                continue  # refit pode puxar angulo pra fora da faixa aceita pelo filter
 
             tRefinamento += perf_counter() - t3
 
@@ -279,9 +166,9 @@ class RANSAC:
 # 4. Pipeline completo
 # ----------------------------------------------------------------------
 def detect_lane(
-        image_path, out_path, method_canny=(50, 150), ransac_k=100,
+        image_path, out_path, ransac_k=100,
         ransac_t=0.5, ransac_d=50, ransac_seed=SEED, loss=square_error_loss,
-        metric=mean_square_error, min_angle_deg=15, max_angle_deg=89, 
+        metric=mean_square_error,
         max_points=None
     ):
 
@@ -296,14 +183,13 @@ def detect_lane(
     profile["Carregamento imagem"] = (t1 - t0) * 1000
 
     t0 = perf_counter()
-    gray = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2GRAY)
-    t1 = perf_counter()
-    profile["Conversao GRAYSCALE"] = (t1 - t0) * 1000
+    paint_mask = extract_paint_mask(image_bgr)
+    profile["Mascara de tinta"] = (perf_counter() - t0) * 1000
 
     t0 = perf_counter()
-    edges = extract_edges(gray, *method_canny)
-    edges = apply_roi(edges, default_roi_vertices(w, h))
-    points = edges_to_points(edges)
+    roi_mask = apply_roi(paint_mask, default_roi_vertices(w, h))
+    points = mask_to_points(roi_mask)
+
     if max_points is not None and max_points < points.shape[0]:
         rng_points = default_rng(SEED)
 
@@ -314,17 +200,16 @@ def detect_lane(
         )
 
         points = points[selected_ids]
-    X, y = points[:, [0]], points[:, 1]
+    X, y = points[:, [1]], points[:, 0]
 
-    model_filter = lambda m: min_angle_deg <= m.angle_deg() <= max_angle_deg
     t1 = perf_counter()
     profile["Extracao de pontos"] = (t1 - t0) * 1000
     profile["N"] = points.shape[0]
 
     t0 = perf_counter()
     ransac = RANSAC(
-        k=ransac_k, t=ransac_t, d=ransac_d, model=LinearRegressor(),
-        filter=model_filter, seed=ransac_seed, loss=loss, metric=metric
+        n=PolynomialRegressor.degree + 1, k=ransac_k, t=ransac_t, d=ransac_d,
+        model=PolynomialRegressor(), seed=ransac_seed, loss=loss, metric=metric,
     )
     ransac.fit(X, y)
     t1 = perf_counter()
@@ -332,34 +217,34 @@ def detect_lane(
     profile["RANSAC TOTAL"] = (t1 - t0) * 1000
 
     t0 = perf_counter()
-    if ransac.best_fit is None:
-        print(f"Nenhuma faixa identificada em '{image_path}'")
-        cv2.imwrite(str(out_path), image_bgr)
-        return
-    t1 = perf_counter()
-    profile["Geracao resultado"] = (t1 - t0) * 1000
-
-    t0 = perf_counter()
-    inliers = points[ransac.best_inliers]
-    p1, p2 = ransac.best_fit.segment_from_inliers(inliers)
-
-    result = image_bgr.copy()
-    for x_values, y_values in inliers:
-        cv2.circle(result, (int(round(x_values)), int(round(y_values))), 1, RED, -1)
-    cv2.line(result, tuple(map(round, p1)), tuple(map(round, p2)), RED, thickness=3)
-    t1 = perf_counter()
-    profile["Geracao imagem resultado"] = (t1 - t0) * 1000
-
-
-    t0 = perf_counter()
     best_model = ransac.best_fit
-    print(
-        f"Faixa detectada: y = {best_model.m:.4f}*x + {best_model.b:.4f} "
-        f"({ransac.best_score}/{points.shape[0]} inliers)"
-    )
+    if best_model is not None:
+        inliers = points[ransac.best_inliers]
+        curve = best_model.curve_from_inliers(inliers)
+    profile["Geracao resultado"] = (perf_counter() - t0) * 1000
+
+    result = image_bgr
+    profile["Geracao imagem resultado"] = 0.0
+    if best_model is not None:
+        t0 = perf_counter()
+        result = image_bgr.copy()
+        for x_values, y_values in inliers:
+            cv2.circle(result, (int(round(x_values)), int(round(y_values))), 1, RED, -1)
+        curve = np.rint(curve).astype(np.int32).reshape(-1, 1, 2)
+        cv2.polylines(result, [curve], isClosed=False, color=RED, thickness=3)
+        profile["Geracao imagem resultado"] = (perf_counter() - t0) * 1000
+
+    t0 = perf_counter()
+    if best_model is None:
+        print(f"Nenhuma faixa identificada em '{image_path}'")
+    else:
+        print(
+            f"Faixa detectada: x = {best_model.a:.4f}*y^2 + "
+            f"{best_model.b:.4f}*y + {best_model.c:.4f} "
+            f"({ransac.best_score}/{points.shape[0]} inliers)"
+        )
     cv2.imwrite(str(out_path), result)
-    t1 = perf_counter()
-    profile["Exibicao e salvamento do resultado"] = (t1 - t0) * 1000
+    profile["Exibicao e salvamento do resultado"] = (perf_counter() - t0) * 1000
 
     return profile
 
@@ -368,7 +253,7 @@ def imprimir_log(titulo, resultado):
     print(f"\n==== {titulo} ====")
     print(f"=> Pipeline ")
     print(f"Carregamento imagem: {resultado['Carregamento imagem']:.3f} ms")
-    print(f"Conversao GRAYSCALE: {resultado['Conversao GRAYSCALE']:.3f} ms")
+    print(f"Mascara de tinta: {resultado['Mascara de tinta']:.3f} ms")
     print(f"Extracao de pontos: {resultado['Extracao de pontos']:.3f} ms")
     
     print(f"\n=> Parametros")
@@ -407,8 +292,8 @@ def exec_media(k, d, n, repeticoes):
             result["Carregamento imagem"]
             for result in result_list
         ),
-        "Conversao GRAYSCALE": mean(
-            result["Conversao GRAYSCALE"]
+        "Mascara de tinta": mean(
+            result["Mascara de tinta"]
             for result in result_list
         ),
         "Extracao de pontos": mean(
@@ -471,7 +356,7 @@ def exec_media(k, d, n, repeticoes):
     imprimir_log(f"MEDIA {repeticoes} repeticoes (K = {k} | N = {n} | D = {d})", profiling)
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Deteccao de faixa via bordas + RANSAC")
+    parser = argparse.ArgumentParser(description="Deteccao de faixa via filtro de cor + RANSAC")
     parser.add_argument("image", help="Caminho da imagem de entrada")
     args = parser.parse_args()
 
@@ -498,7 +383,7 @@ if __name__ == "__main__":
             print(f"Tempo PREPARACAO DA EXECUCAO : {(t1 - t0) * 1000:.3f} ms")
 
             default_k = 3000
-            default_d = 200
+            default_d = 50
 
             t0 = perf_counter()
             profiling = detect_lane(input_image, output_path, ransac_k=default_k, ransac_t=1.0, ransac_d=default_d, max_points=None)
@@ -507,11 +392,15 @@ if __name__ == "__main__":
 
             default_n = profiling["N"]
 
-            imprimir_log(f"Cenário padrão (K = 3000 | N = {default_n} | D = 200)", profiling)
+            imprimir_log(f"Cenário padrão (K = 3000 | N = {default_n} | D = {default_d})", profiling)
 
             exec_media(k=1500, d=default_d, n=None, repeticoes=10)
             exec_media(k=6000, d=default_d, n=None, repeticoes=10)
             exec_media(k=9000, d=default_d, n=None, repeticoes=10)
+
+            if default_n == 0:
+                print("Nenhum ponto extraído. Cenários de redução de pontos ignorados.")
+                sys.exit(0)
 
             n = round(default_n*0.25)
             d = round(default_d/default_n*n)

@@ -14,10 +14,10 @@ O objetivo é acelerar em hardware dedicado (Verilog) a etapa mais custosa do al
 
 Estrutura definida para realização do projeto:
 
-- [X] **1. Aplicação em Python** — implementação de referência do RANSAC para validar o algoritmo
-- [ ] **2. Profiling em Python** — identificar os gargalos computacionais
-- [X] **3. Python para C** — entrada RGB, buffers estáticos e aplicação para o Nios II; validação com o BSP e na placa pendente
-- [ ] **4. Validação do C no Nios II** — leitura de memória via *In-System Memory Content Editor* (Quartus); usa-se uma imagem reduzida para caber nas memórias internas da FPGA
+- [x] **1. Aplicação em Python** — implementação de referência do RANSAC para validar o algoritmo
+- [x] **2. Profiling em Python** — identificar os gargalos computacionais
+- [x] **3. Python para C** — entrada RGB, buffers estáticos e aplicação para o Nios II; validação com o BSP e na placa pendente
+- [ ] **4. Validação do C no Nios II** — leitura de memória via _In-System Memory Content Editor_ (Quartus); usa-se uma imagem reduzida para caber nas memórias internas da FPGA
 - [ ] **5. Acelerador em Verilog** — implementação do gargalo identificado, integrado ao sistema via Platform Designer (Nios II + módulo acelerador)
 - [ ] **6. Revalidação + medição de desempenho** — repete a validação do passo 4 na versão acelerada e mede o ganho obtido
 - [ ] **7. Comunicação UART** — integração entre o host Python e o sistema embarcado (Nios II + Verilog) via Platform Designer
