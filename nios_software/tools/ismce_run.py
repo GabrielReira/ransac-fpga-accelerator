@@ -1,7 +1,7 @@
 """Roda o pipeline no Nios II pelo In-System Memory Content Editor e compara
 com a mesma implementacao C no computador
 
-Requer a placa com o .sof da P1 e o ransac_ismce.elf rodando (nios2-download -g)
+Requer a placa com o .sof da P1 e o ransac_ismce.elf rodando (nios/load_nios.sh)
 Sai com 0 em PASS e 1 em FAIL
 """
 

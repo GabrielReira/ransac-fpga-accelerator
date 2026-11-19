@@ -25,9 +25,10 @@ if {$cable eq ""} {
     }
     set cable [lindex $hardware_names 0]
 }
+# O Quartus 17 rotula o IDCODE do EP4CE115 como "10CL120(Y|Z)/EP3C120/.."
 set device ""
 foreach name [get_device_names -hardware_name $cable] {
-    if {[string match "*EP4CE115*" $name]} {
+    if {[string match -nocase "*(0x020F70DD)*" $name]} {
         set device $name
     }
 }
@@ -75,7 +76,7 @@ proc read_word {index address} {
 begin_memory_edit -hardware_name $cable -device_name $device
 
 if {[read_word $mbox 0] != $magic} {
-    fail "Nios nao esta pronto (carregue ransac_ismce.elf com nios2-download -g)"
+    fail "Nios nao esta pronto (carregue ransac_ismce.elf com nios/load_nios.sh)"
 }
 
 set handle [open $img_file r]
