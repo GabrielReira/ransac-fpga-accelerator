@@ -1,7 +1,8 @@
-"""Gera nios/bench_images.h com os nomes das imagens embutidas e a referencia do computador
+"""Gera nios/bench_images.h com a referencia do computador para cada frame embutido
 
-Uso: bench_header.py <dir_referencia> <bench_set> <nome>...
-Le <dir_referencia>/<nome>_model.json e <nome>_mask.bin, gerados pelo lane_detect
+Uso: bench_header.py <dir_referencia> <bench_set> <double|float> <nome:LxA>...
+Le <dir_referencia>/<nome>_<L>x<A>_model.json e _mask.bin, gerados pelo lane_detect
+A ordem dos argumentos e a ordem dos PPMs em bench_images.ppm
 """
 
 import json
@@ -17,30 +18,32 @@ def fnv1a(data):
 
 
 def main():
-    if len(sys.argv) < 4:
+    if len(sys.argv) < 5:
         sys.exit(__doc__)
-    reference_dir, bench_set, names = Path(sys.argv[1]), sys.argv[2], sys.argv[3:]
+    reference_dir, bench_set, real = Path(sys.argv[1]), sys.argv[2], sys.argv[3]
     rows = []
-    for name in names:
-        model = json.loads((reference_dir / f"{name}_model.json").read_text())
-        mask_hash = fnv1a((reference_dir / f"{name}_mask.bin").read_bytes())
-        rows.append(f"    {{{int(model['found'])}, {model['points']}UL, {model['inliers']}UL, "
-                    f"0x{mask_hash:08X}U}}, // {name}")
-    print(f"""// Gerado por tools/bench_header.py (BENCH_SET={bench_set})
+    for entry in sys.argv[4:]:
+        name, size = entry.split(":")
+        width, height = (int(v) for v in size.split("x"))
+        stem = reference_dir / f"{name}_{size}"
+        model = json.loads(Path(f"{stem}_model.json").read_text())
+        mask_hash = fnv1a(Path(f"{stem}_mask.bin").read_bytes())
+        rows.append(f'    {{"{name}", {width}U, {height}U, {int(model["found"])}, '
+                    f'{model["points"]}UL, {model["inliers"]}UL, 0x{mask_hash:08X}U}},')
+    print(f"""// Gerado por tools/bench_header.py (BENCH_SET={bench_set}, {real})
 #ifndef BENCH_IMAGES_H
 #define BENCH_IMAGES_H
 
 #include <stdint.h>
 
-#define BENCH_IMAGE_COUNT {len(names)}
+#define BENCH_IMAGE_COUNT {len(rows)}
+#define BENCH_REAL_NAME "{real}"
 
-static const char *const bench_image_names[BENCH_IMAGE_COUNT] = {{
-{chr(10).join(f'    "{name}",' for name in names)}
-}};
-
-#ifdef BENCH_REFERENCES
 // lane_detect no computador com a configuracao do build; so vale se ela nao mudou
 typedef struct {{
+    const char *name;
+    unsigned width;
+    unsigned height;
     int found;
     unsigned long points;
     unsigned long inliers;
@@ -50,7 +53,6 @@ typedef struct {{
 static const BenchReference bench_references[BENCH_IMAGE_COUNT] = {{
 {chr(10).join(rows)}
 }};
-#endif
 
 #endif""")
 

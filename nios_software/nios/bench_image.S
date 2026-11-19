@@ -1,9 +1,9 @@
-/* RGB888 cru do benchmark, embutido no .elf
-   build_nios.sh concatena os frames escolhidos em bench_image.rgb antes de compilar */
+/* PPMs (P6) do benchmark, concatenados e embutidos no .elf
+   build_nios.sh gera bench_images.ppm antes de compilar; nios/bench_frames.c percorre */
     .section .rodata
     .balign 4
-    .global bench_rgb
-    .global bench_rgb_end
-bench_rgb:
-    .incbin "bench_image.rgb"
-bench_rgb_end:
+    .global bench_ppm
+    .global bench_ppm_end
+bench_ppm:
+    .incbin "bench_images.ppm"
+bench_ppm_end:

@@ -1,11 +1,10 @@
 /* Terminal de comandos da P1 pela JTAG UART (nios2-terminal): roda o pipeline
-   sobre as imagens embutidas em bench_image.S, com parametros ajustaveis */
+   sobre os PPMs embutidos em bench_image.S, com parametros ajustaveis */
 // Comandos: help, list, show, set, reset, run, profile, quit
 #include "altera_avalon_jtag_uart_regs.h"
 #include "altera_avalon_performance_counter.h"
 #include "altera_avalon_pio_regs.h"
-#define BENCH_REFERENCES
-#include "bench_images.h"
+#include "bench_frames.h"
 #include "entry.h"
 #include "fnv1a.h"
 #include "lane_profile.h"
@@ -14,8 +13,9 @@
 #include <stdlib.h>
 #include <string.h>
 
-extern const uint8_t bench_rgb[];
-extern const uint8_t bench_rgb_end[];
+#ifndef BENCH_FPU
+#define BENCH_FPU 0
+#endif
 
 static LaneConfig build_config;
 static int last_image = -1;
@@ -71,52 +71,48 @@ static void show_config(void)
 {
     printf("iterations=%lu threshold=%g min_inliers=%lu seed=%lu thickness=%lu%s\n",
            (unsigned long)nios_lane_config.ransac.iterations,
-           nios_lane_config.ransac.threshold,
+           (double)nios_lane_config.ransac.threshold,
            (unsigned long)nios_lane_config.ransac.min_inliers,
            (unsigned long)nios_lane_config.ransac.seed,
            (unsigned long)nios_lane_config.thickness,
            config_is_build() ? "  (configuracao do build)" : "");
 }
 
-static int find_image(const char *arg)
+// Indice da lista ou -1; nomes sao tratados em run_command porque podem ter varios tamanhos
+static int find_index(const char *arg)
 {
     char *end;
     long index = strtol(arg, &end, 10);
-    if (*end == '\0' && index >= 0 && index < BENCH_IMAGE_COUNT) {
-        return (int)index;
-    }
-    for (int i = 0; i < BENCH_IMAGE_COUNT; ++i) {
-        if (strcmp(arg, bench_image_names[i]) == 0) {
-            return i;
-        }
-    }
-    return -1;
+    return *end == '\0' && index >= 0 && index < BENCH_IMAGE_COUNT ? (int)index : -1;
 }
 
 // Retorna 1 em PASS, 0 em FAIL e -1 quando a referencia nao se aplica
 static int run_image(int image)
 {
+    const PpmImage *frame = &bench_frames[image];
+    size_t pixels = frame->width * frame->height;
     IOWR_ALTERA_AVALON_PIO_DATA(LED_PIO_BASE, image + 1);
     // A copia restaura o RGB que o debug sobrescreve e fica fora da medicao
-    memcpy(nios_rgb, bench_rgb + (size_t)image * sizeof(nios_rgb), sizeof(nios_rgb));
+    memcpy(nios_rgb, frame->pixels, 3 * pixels);
 
     PERF_RESET(PERF_COUNTER_BASE);
     PERF_START_MEASURING(PERF_COUNTER_BASE);
-    LaneStatus status = nios_process_rgb();
+    LaneStatus status = nios_process_rgb_size(frame->width, frame->height);
     PERF_STOP_MEASURING(PERF_COUNTER_BASE);
     last_image = image;
 
     unsigned long long total = perf_get_total_time((void *)PERF_COUNTER_BASE);
     unsigned long long consensus =
         perf_get_section_time((void *)PERF_COUNTER_BASE, LANE_SECTION_CONSENSUS);
-    uint32_t mask_hash = fnv1a(nios_lane_mask, sizeof(nios_lane_mask));
-    printf("[%d] %s\n", image, bench_image_names[image]);
+    uint32_t mask_hash = fnv1a(nios_lane_mask, pixels);
+    printf("[%d] %s %lux%lu\n", image, bench_references[image].name,
+           (unsigned long)frame->width, (unsigned long)frame->height);
     printf("  status=%d found=%d points=%lu inliers=%lu\n", (int)status,
            (int)nios_lane_result.found, (unsigned long)nios_point_count,
            (unsigned long)nios_lane_result.inlier_count);
-    printf("  a=%.9g b=%.9g c=%.9g mse=%.9g\n", nios_lane_result.poly.a,
-           nios_lane_result.poly.b, nios_lane_result.poly.c,
-           nios_lane_result.mean_squared_error);
+    printf("  a=%.9g b=%.9g c=%.9g mse=%.9g\n", (double)nios_lane_result.poly.a,
+           (double)nios_lane_result.poly.b, (double)nios_lane_result.poly.c,
+           (double)nios_lane_result.mean_squared_error);
     printf("  mask_fnv1a=0x%08lx total_ms=%.1f consenso=%.1f%%\n", (unsigned long)mask_hash,
            (double)total * 1000.0 / (double)ALT_CPU_FREQ,
            total ? 100.0 * (double)consensus / (double)total : 0.0);
@@ -139,23 +135,28 @@ static void run_command(char *arg)
         puts("uso: run <indice|nome|all>");
         return;
     }
-    if (strcmp(arg, "all") != 0) {
-        int image = find_image(arg);
-        if (image < 0) {
-            printf("imagem desconhecida: %s (veja list)\n", arg);
-            return;
-        }
-        run_image(image);
+    int index = find_index(arg);
+    if (index >= 0) {
+        run_image(index);
         return;
     }
-    int passed = 0, failed = 0;
+    // "all" roda tudo; um nome roda todos os tamanhos embutidos dele
+    bool all = strcmp(arg, "all") == 0;
+    int passed = 0, failed = 0, total = 0;
     for (int image = 0; image < BENCH_IMAGE_COUNT; ++image) {
-        int result = run_image(image);
-        passed += result == 1;
-        failed += result == 0;
+        if (all || strcmp(arg, bench_references[image].name) == 0) {
+            int result = run_image(image);
+            passed += result == 1;
+            failed += result == 0;
+            ++total;
+        }
     }
-    printf("all: %d PASS, %d FAIL, %d sem referencia\n", passed, failed,
-           BENCH_IMAGE_COUNT - passed - failed);
+    if (total == 0) {
+        printf("imagem desconhecida: %s (veja list)\n", arg);
+    } else if (total > 1) {
+        printf("%s: %d PASS, %d FAIL, %d sem referencia\n", arg, passed, failed,
+               total - passed - failed);
+    }
 }
 
 static void set_command(char *key, char *value)
@@ -213,19 +214,15 @@ int main(void)
     build_config = nios_lane_config;
     // sem buffer no stdin, cada tecla chega ao read_line assim que o PC envia
     setvbuf(stdin, NULL, _IONBF, 0);
-    // build_nios.sh concatena os frames, todos com LANE_IMAGE_WIDTH x LANE_IMAGE_HEIGHT
-    bool images_ok = (size_t)(bench_rgb_end - bench_rgb) == BENCH_IMAGE_COUNT * sizeof(nios_rgb);
     char line[96];
 
     for (;;) {
         wait_for_terminal();
         IOWR_ALTERA_AVALON_PIO_DATA(LED_PIO_BASE, 0);
-        printf("\nRANSAC shell %dx%d, %d imagem(ns), CPU %lu Hz (help para comandos)\n",
-               LANE_IMAGE_WIDTH, LANE_IMAGE_HEIGHT, BENCH_IMAGE_COUNT,
+        printf("\nRANSAC shell %d imagem(ns), %s, FPU %s, CPU %lu Hz (help para comandos)\n",
+               BENCH_IMAGE_COUNT, BENCH_REAL_NAME, BENCH_FPU ? "sim" : "nao",
                (unsigned long)ALT_CPU_FREQ);
-        if (!images_ok) {
-            puts("ERRO: tamanho das imagens embutidas nao bate com LANE_IMAGE_WIDTH/HEIGHT");
-        }
+        bool images_ok = bench_frames_load();
         show_config();
 
         for (;;) {
@@ -241,8 +238,9 @@ int main(void)
                 help();
             } else if (strcmp(command, "list") == 0) {
                 for (int i = 0; i < BENCH_IMAGE_COUNT; ++i) {
-                    printf("  %d %-20s ref: points=%lu inliers=%lu mask=0x%08lx\n", i,
-                           bench_image_names[i], bench_references[i].points,
+                    printf("  %d %-20s %4ux%-4u ref: points=%lu inliers=%lu mask=0x%08lx\n", i,
+                           bench_references[i].name, bench_references[i].width,
+                           bench_references[i].height, bench_references[i].points,
                            bench_references[i].inliers,
                            (unsigned long)bench_references[i].mask_hash);
                 }
@@ -261,7 +259,8 @@ int main(void)
                 if (last_image < 0) {
                     puts("nenhuma execucao ainda");
                 } else {
-                    printf("ultima execucao: %s\n", bench_image_names[last_image]);
+                    printf("ultima execucao: [%d] %s\n", last_image,
+                           bench_references[last_image].name);
                     perf_print_formatted_report((void *)PERF_COUNTER_BASE, ALT_CPU_FREQ,
                                                 LANE_SECTION_COUNT, "Pre-processamento",
                                                 "Amostragem", "Estimativa modelo", "Consenso",

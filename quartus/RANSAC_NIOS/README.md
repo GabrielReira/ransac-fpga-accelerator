@@ -16,6 +16,7 @@ deste diretório diretamente por CLI.
 | `led_pio` | `LEDG[7:0]` |
 | `mailbox` | 1 KiB on-chip, ISMCE `MBOX`: comandos e resultados |
 | `img_buf` | 192 KiB on-chip, ISMCE `IMG`: frame RGB888 (até 320×200) |
+| `fpu` | opcional (`FPU=1`): Floating Point Hardware 2, só precisão simples |
 
 Clock de 50 MHz por um PLL no top-level (`ransac_nios_top.v`): `c0` para o
 sistema e `c1` defasado −3 ns para `DRAM_CLK`. `KEY[0]` é o reset e `LEDG[8]`
@@ -31,6 +32,10 @@ O `/f` sem licença gera um `.sof` *time-limited* (OpenCore Plus): o sistema só
 funciona com o cabo JTAG conectado. O `/e` não tem multiplicador em hardware
 nem FPU; as operações em `double` são emuladas em software, o que afeta o
 profiling.
+
+Com `FPU=1`, o sistema ganha o Floating Point Hardware 2 (gratuito, aceito pelo
+`/e`, +2,4 mil elementos lógicos). Ele só acelera `float`: o código precisa ser
+compilado com `REAL=float`. Em `double`, a FPU fica ociosa.
 
 ## Requisitos
 
@@ -56,11 +61,14 @@ jtagconfig      # deve listar o USB-Blaster e o EP4CE115
 
 # 1. Hardware: gera Qsys, cria o projeto e compila (~1 min).
 quartus/RANSAC_NIOS/build_hw.sh     # .sof e .sopcinfo em output/
+FPU=1 quartus/RANSAC_NIOS/build_hw.sh     # com o Floating Point Hardware 2
 
 # 2. Software: BSP + benchmark com as imagens embutidas e a referência do computador.
 nios_software/nios/build_nios.sh      # simple: solidWhiteCurve, 960x540
 BENCH_SET=full nios_software/nios/build_nios.sh     # full: as 6 imagens de python/test_images
 WIDTH=320 HEIGHT=180 BENCH_ITERATIONS=200 nios_software/nios/build_nios.sh
+SIZES="320x180 960x540" BENCH_SET=full nios_software/nios/build_nios.sh   # dois tamanhos no mesmo .elf
+REAL=float nios_software/nios/build_nios.sh      # precisão simples (use com FPU=1)
 
 # 3. Placa: programa, carrega, imprime o relatório e grava o log.
 nios_software/nios/run_bench.sh
@@ -74,10 +82,17 @@ CABLE="USB-Blaster [1-1]" nios_software/nios/run_bench.sh     # com mais de um c
 O benchmark aguarda o `nios2-terminal` conectar (`LEDG7` aceso), processa as
 imagens em sequência (`LEDG` mostra o número da imagem) e encerra o terminal ao
 final (`LEDG[7:0]` todos acesos). Em seguida o `run_bench.sh` roda
-`tools/bench_check.py`, que compara cada imagem com
+`tools/bench_check.py`, que compara cada frame com
 `nios_software/build/nios/reference.txt` (o mesmo código C no computador) e
 imprime PASS/FAIL, tempo total e fração do consenso. Para conferir um log
 antigo: `python3 nios_software/tools/bench_check.py <log>`.
+
+As imagens vão para o `.elf` como PPMs (P6) concatenados, cada um com o nome no
+comentário e o próprio tamanho no cabeçalho; o Nios percorre os PPMs na
+inicialização. Pontos, inliers e máscara são comparados exatamente; os
+coeficientes, pela curva (até 0,01 px no trecho detectado), porque com a FPU os
+últimos bits do `float` podem diferir do PC. A referência usa a mesma
+aritmética do build (`REAL`), compilada por `tools/build_reference.sh`.
 
 Tempos no Nios II/e: o conjunto `simple` em 960x540 com 1000 iterações leva
 cerca de 12 min; o `full` nessa configuração passa de uma hora. Para uma

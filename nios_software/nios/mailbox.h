@@ -7,7 +7,7 @@
 // Cada double ocupa duas palavras com os bits IEEE 754, palavra baixa primeiro
 
 #define MBOX_MAGIC_VALUE 0x5253434EU // "RSCN": Nios pronto para comandos
-#define MBOX_VERSION_VALUE 1U
+#define MBOX_VERSION_VALUE 2U
 #define MBOX_COMMAND_RUN 1U
 #define MBOX_STATUS_RUNNING 0xFFFFFFFFU
 #define MBOX_STATUS_BAD_INPUT 0x100U // dimensoes nulas ou maiores que IMG
@@ -19,6 +19,8 @@
 #define MBOX_SEQUENCE 3      // execucoes concluidas
 #define MBOX_HEARTBEAT 4     // incrementado enquanto o Nios espera
 #define MBOX_IMG_CAPACITY 5  // bytes disponiveis na memoria IMG
+#define MBOX_REAL 6          // 0 double, 1 float: escolhe a referencia do computador
+#define MBOX_FPU 7           // 1 com o Floating Point Hardware 2 no sistema
 
 // Entradas (escritas pelo PC antes do comando)
 #define MBOX_WIDTH 8

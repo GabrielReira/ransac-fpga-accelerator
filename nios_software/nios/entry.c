@@ -16,8 +16,17 @@ static size_t best_ids[LANE_MAX_POINTS];
 
 LaneStatus nios_process_rgb(void)
 {
-    Image image = {LANE_IMAGE_WIDTH, LANE_IMAGE_HEIGHT, nios_rgb};
-    BinaryMask mask = {LANE_IMAGE_WIDTH, LANE_IMAGE_HEIGHT, nios_lane_mask};
+    return nios_process_rgb_size(LANE_IMAGE_WIDTH, LANE_IMAGE_HEIGHT);
+}
+
+LaneStatus nios_process_rgb_size(size_t width, size_t height)
+{
+    if (width == 0 || height == 0 ||
+        width > (size_t)LANE_IMAGE_WIDTH * LANE_IMAGE_HEIGHT / height) {
+        return LANE_INVALID_ARGUMENT;
+    }
+    Image image = {width, height, nios_rgb};
+    BinaryMask mask = {width, height, nios_lane_mask};
     LaneWorkspace workspace = {
         points, LANE_MAX_POINTS,
         {candidate_ids, best_ids, LANE_MAX_POINTS}

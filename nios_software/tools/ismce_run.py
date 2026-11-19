@@ -7,6 +7,7 @@ Sai com 0 em PASS e 1 em FAIL
 
 import argparse
 import json
+import math
 import os
 import re
 import shutil
@@ -19,6 +20,10 @@ import cv2
 
 TOOLS = Path(__file__).resolve().parent
 SW = TOOLS.parent
+# Mesmo criterio do tools/bench_check.py: curva ate 0,01 px e mse 1e-4 relativo,
+# porque o FPH2 arredonda alguns bits finais diferente do float do PC
+CURVE_TOLERANCE_PX = 0.01
+MSE_TOLERANCE = 1e-4
 SECTIONS = ["Pre-processamento", "Amostragem", "Estimativa modelo", "Consenso",
             "Refinamento", "Erro/selecao", "Renderizacao"]
 
@@ -63,9 +68,11 @@ def find_quartus_stp(explicit):
     return found
 
 
-def host_reference(rgb_path, args, threshold, out_prefix):
-    lane_detect = SW / "build" / "lane_detect"
-    subprocess.run(["make", "-C", str(SW), "host"], check=True, stdout=subprocess.DEVNULL)
+def host_reference(rgb_path, args, threshold, out_prefix, real):
+    # Mesma aritmetica da placa (MBOX_REAL), compilada a parte por tools/build_reference.sh
+    ref_dir = args.work / f"lane_detect_{real}"
+    subprocess.run([str(TOOLS / "build_reference.sh"), str(ref_dir), real], check=True)
+    lane_detect = ref_dir / "lane_detect"
     subprocess.run([str(lane_detect), str(rgb_path), str(args.width), str(args.height),
                     str(out_prefix), "--iterations", str(args.iterations),
                     "--threshold", repr(threshold), "--min-inliers", str(args.min_inliers),
@@ -138,7 +145,9 @@ def main():
         "mse": words_to_double(words, layout["MSE"]), "mask_hash": word("MASK_HASH"),
         "rgb_hash": word("RGB_HASH"),
     }
-    reference = host_reference(rgb_path, args, threshold, args.work / "reference")
+    real = "float" if word("REAL") else "double"
+    print(f"Nios: aritmetica {real}, FPU {'sim' if word('FPU') else 'nao'}", flush=True)
+    reference = host_reference(rgb_path, args, threshold, args.work / "reference", real)
 
     checks = [
         ("status", nios["status"], 0),
@@ -146,16 +155,22 @@ def main():
         ("found", nios["found"], reference["found"]),
         ("points", nios["points"], reference["points"]),
         ("inliers", nios["inliers"], reference["inliers"]),
-        ("a", nios["a"], reference["poly"]["a"]),
-        ("b", nios["b"], reference["poly"]["b"]),
-        ("c", nios["c"], reference["poly"]["c"]),
-        ("mse", nios["mse"], reference["mse"]),
         ("mask_fnv1a", f"0x{nios['mask_hash']:08x}", f"0x{reference['mask_hash']:08x}"),
     ]
+    checks = [(name, got, expected, got == expected) for name, got, expected in checks]
+    if reference["found"]:
+        poly = reference["poly"]
+        deviation = max(abs((nios["a"] - poly["a"]) * y * y + (nios["b"] - poly["b"]) * y
+                            + nios["c"] - poly["c"])
+                        for y in range(int(reference["y_min"]), int(reference["y_max"]) + 1))
+        checks += [(key, nios[key], poly[key], True) for key in ("a", "b", "c")]
+        checks.append(("curva |dx|", f"{deviation:.2e} px", f"<= {CURVE_TOLERANCE_PX} px",
+                       deviation <= CURVE_TOLERANCE_PX))
+        checks.append(("mse", nios["mse"], reference["mse"],
+                       math.isclose(nios["mse"], reference["mse"], rel_tol=MSE_TOLERANCE)))
     print(f"\n{'campo':<11} {'Nios II':>24} {'computador':>24}")
     passed = True
-    for name, got, expected in checks:
-        ok = got == expected
+    for name, got, expected, ok in checks:
         passed &= ok
         print(f"{name:<11} {got!s:>24} {expected!s:>24}{'' if ok else '  <-- DIFERENTE'}")
 

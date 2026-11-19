@@ -13,5 +13,7 @@ extern size_t nios_point_count;
 /* O produtor preenche nios_rgb antes da chamada. O RGB vira o debug em lugar.
    O proximo frame deve repor todo o RGB, sem as marcacoes anteriores. */
 LaneStatus nios_process_rgb(void);
+// Mesmo processamento para um frame menor que o buffer: width * height <= LANE_IMAGE_WIDTH * LANE_IMAGE_HEIGHT
+LaneStatus nios_process_rgb_size(size_t width, size_t height);
 
 #endif

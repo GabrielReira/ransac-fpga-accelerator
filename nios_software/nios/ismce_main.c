@@ -15,6 +15,9 @@ Dimensoes vem da MBOX*/
 #include <string.h>
 
 #define IMG_CAPACITY IMG_BUF_SPAN
+#ifndef BENCH_FPU
+#define BENCH_FPU 0
+#endif
 
 static uint8_t rgb[IMG_CAPACITY];
 static uint8_t mask[IMG_CAPACITY / 3];
@@ -110,6 +113,8 @@ int main(void)
     mbox_write(MBOX_SEQUENCE, 0);
     mbox_write(MBOX_VERSION, MBOX_VERSION_VALUE);
     mbox_write(MBOX_IMG_CAPACITY, IMG_CAPACITY);
+    mbox_write(MBOX_REAL, sizeof(lane_real) == sizeof(float));
+    mbox_write(MBOX_FPU, BENCH_FPU);
     mbox_write(MBOX_MAGIC, MBOX_MAGIC_VALUE); // por ultimo: o PC so confia na MBOX depois disso
 
     uint32_t heartbeat = 0;
