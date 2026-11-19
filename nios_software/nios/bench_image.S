@@ -1,5 +1,5 @@
 /* RGB888 cru do benchmark, embutido no .elf
-   build_nios.sh copia a imagem escolhida para bench_image.rgb antes de compilar */
+   build_nios.sh concatena os frames escolhidos em bench_image.rgb antes de compilar */
     .section .rodata
     .balign 4
     .global bench_rgb

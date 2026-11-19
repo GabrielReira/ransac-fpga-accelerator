@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 # Gera BSP + aplicacao para o sistema da P1
-#   APP=bench (padrao): benchmark com a imagem embutida (bench_main.c) e a
+#   APP=bench (padrao): benchmark com as imagens embutidas (bench_main.c) e a
 #                       referencia do computador com os mesmos parametros
+#   APP=shell:          terminal de comandos pela JTAG UART (shell_main.c), com as
+#                       mesmas imagens embutidas e a referencia do computador
 #   APP=ismce:          estrutura de teste do In-System Memory Content Editor (ismce_main.c)
 #                       Imagem e parametros chegam por tools/ismce_run.py, que
 #                       assume o papel de IMAGE/WIDTH/HEIGHT/BENCH_*
@@ -9,7 +11,9 @@
 # Variaveis (todas opcionais):
 #   QUARTUS_ROOTDIR   .../Quartus/quartus (padrao: deduzido do quartus_sh no PATH)
 #   SOPCINFO          padrao: quartus/RANSAC_NIOS/output/ransac_nios.sopcinfo
-#   IMAGE             JPEG de entrada (padrao: python/test_images/solidWhiteCurve.jpg)
+#   BENCH_SET         simple (padrao): so IMAGE
+#                     full: todos os JPEG de python/test_images, em ordem alfabetica
+#   IMAGE             JPEG do conjunto simple (padrao: python/test_images/solidWhiteCurve.jpg)
 #   WIDTH, HEIGHT     dimensoes do frame (padrao: 960x540)
 #   BENCH_ITERATIONS  iteracoes do RANSAC (padrao: as de nios/entry.c, 1000)
 #   BENCH_RUNS        repeticoes na placa (padrao: 1)
@@ -28,6 +32,7 @@ height="${HEIGHT:-540}"
 runs="${BENCH_RUNS:-1}"
 python="${PYTHON:-python3}"
 app="${APP:-bench}"
+bench_set="${BENCH_SET:-simple}"
 
 if [[ -z "${QUARTUS_ROOTDIR:-}" ]]; then
     quartus_sh="$(command -v quartus_sh)" || { echo "Defina QUARTUS_ROOTDIR" >&2; exit 1; }
@@ -42,29 +47,57 @@ case "$work" in
 esac
 [[ -f "$sopcinfo" ]] || { echo "sopcinfo nao encontrado: $sopcinfo (rode build_hw.sh)" >&2; exit 1; }
 case "$app" in
-    bench|ismce) ;;
-    *) echo "APP deve ser bench ou ismce: $app" >&2; exit 1 ;;
+    bench|ismce|shell) ;;
+    *) echo "APP deve ser bench, ismce ou shell: $app" >&2; exit 1 ;;
+esac
+case "$bench_set" in
+    simple) images=("$image") ;;
+    full) LC_COLLATE=C; images=("$repo"/python/test_images/*.jpg) ;;
+    *) echo "BENCH_SET deve ser simple ou full: $bench_set" >&2; exit 1 ;;
 esac
 
+out="$repo/nios_software/build/nios"
 rm -rf "$work"
-mkdir -p "$work" "$repo/nios_software/build/nios"
+mkdir -p "$work" "$out"
 cp -r "$sw_dir/src" "$sw_dir/include" "$sw_dir/nios" "$work/"
 cp "$sopcinfo" "$work/system.sopcinfo"
 
 core_sources="src/preprocess.c src/poly.c src/ransac.c src/render.c src/lane.c"
-host_args=()
-if [[ "$app" == bench ]]; then
-    "$python" "$sw_dir/tools/prepare_rgb.py" "$image" "$work/bench_image.rgb" \
-        --width "$width" --height "$height"
-    sources="$core_sources nios/entry.c nios/bench_main.c nios/bench_image.S"
+if [[ "$app" == ismce ]]; then
+    sources="$core_sources nios/ismce_main.c"
+    defines="-DLANE_PROFILE"
+else
+    host_args=()
     defines="-DLANE_PROFILE -DLANE_IMAGE_WIDTH=$width -DLANE_IMAGE_HEIGHT=$height -DBENCH_RUNS=$runs"
     if [[ -n "${BENCH_ITERATIONS:-}" ]]; then
         defines+=" -DBENCH_ITERATIONS=$BENCH_ITERATIONS"
         host_args+=(--iterations "$BENCH_ITERATIONS")
     fi
-else
-    sources="$core_sources nios/ismce_main.c"
-    defines="-DLANE_PROFILE"
+    # Os frames ficam em sequencia num unico .incbin
+    # A referencia do computador usa o mesmo RGB e os mesmos parametros, uma por imagem:
+    # tools/bench_check.py compara com o log e o shell confere direto pelo bench_images.h
+    make -C "$sw_dir" host >/dev/null
+    rm -rf "$out/reference" "$out"/reference_* "$out/reference.txt"
+    mkdir -p "$work/frames" "$out/reference"
+    : > "$work/bench_image.rgb"
+    names=()
+    for img in "${images[@]}"; do
+        name="$(basename "${img%.*}")"
+        names+=("$name")
+        "$python" "$sw_dir/tools/prepare_rgb.py" "$img" "$work/frames/$name.rgb" \
+            --width "$width" --height "$height"
+        cat "$work/frames/$name.rgb" >> "$work/bench_image.rgb"
+        "$sw_dir/build/lane_detect" "$work/frames/$name.rgb" "$width" "$height" \
+            "$out/reference/$name" "${host_args[@]}" >/dev/null
+        {
+            echo "image=$name"
+            cat "$out/reference/${name}_model.json"
+            "$python" "$sw_dir/tools/mask_hash.py" "$out/reference/${name}_mask.bin"
+        } >> "$out/reference.txt"
+    done
+    "$python" "$sw_dir/tools/bench_header.py" "$out/reference" "$bench_set" "${names[@]}" \
+        > "$work/nios/bench_images.h"
+    sources="$core_sources nios/entry.c nios/${app}_main.c nios/bench_image.S"
 fi
 elf="ransac_$app.elf"
 
@@ -84,20 +117,10 @@ nios2-app-generate-makefile --bsp-dir bsp --app-dir . --elf-name "$elf" \
 make -j"$(nproc)"
 nios2-elf-size "$elf"
 
-out="$repo/nios_software/build/nios"
 cp "$elf" "$out/"
-if [[ "$app" == ismce ]]; then
-    echo "ELF: $out/$elf  (carregue com nios2-download -g e rode tools/ismce_run.py)"
-    exit 0
-fi
-
-# Referencia no computador com o mesmo RGB e os mesmos parametros
-# Deve bater com as linhas a=, b=, c=, inliers= e mask_fnv1a= impressas pela placa
-make -C "$sw_dir" host >/dev/null
-"$sw_dir/build/lane_detect" bench_image.rgb "$width" "$height" "$out/reference" \
-    "${host_args[@]}" >/dev/null
-{
-    cat "$out/reference_model.json"
-    "$python" "$sw_dir/tools/mask_hash.py" "$out/reference_mask.bin"
-} | tee "$out/reference.txt"
-echo "ELF: $out/ransac_bench.elf  Referencia: $out/reference.txt"
+case "$app" in
+    ismce) echo "ELF: $out/$elf  (carregue com nios/load_nios.sh e rode tools/ismce_run.py)" ;;
+    shell) echo "ELF: $out/$elf (${#images[@]} imagem(ns), BENCH_SET=$bench_set; abra com nios/run_shell.sh)" ;;
+    *) echo "ELF: $out/$elf (${#images[@]} imagem(ns), BENCH_SET=$bench_set)"
+       echo "Referencia: $out/reference.txt" ;;
+esac

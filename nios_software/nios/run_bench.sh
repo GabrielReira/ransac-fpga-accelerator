@@ -24,8 +24,8 @@ fi
 
 jtagconfig
 quartus_pgm "${cable_args[@]}" -m JTAG -o "p;$sof"
-nios2-download "${cable_args[@]}" -g "$elf"
+"$nios_dir/load_nios.sh" "$elf"
 #o benchmark so imprime depois que o terminal conecta e fecha com Ctrl-D
 nios2-terminal "${cable_args[@]}" -q | tee "$log"
 echo "Log: $log"
-echo "Referencia do computador: $out/reference.txt"
+python3 "$repo/nios_software/tools/bench_check.py" "$log" --reference "$out/reference.txt"

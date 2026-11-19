@@ -1,9 +1,10 @@
-/* Benchmark da P1: processa a imagem de bench_image.S e imprime modelo, hash
+/* Benchmark da P1: processa as imagens de bench_image.S e imprime modelo, hash
    da mascara e relatorio do performance counter pela JTAG UART */
 // Ocupa o lugar de nios/main.c no build de benchmark
 #include "altera_avalon_jtag_uart_regs.h"
 #include "altera_avalon_performance_counter.h"
 #include "altera_avalon_pio_regs.h"
+#include "bench_images.h"
 #include "entry.h"
 #include "fnv1a.h"
 #include "lane_profile.h"
@@ -32,12 +33,15 @@ static void wait_for_terminal(void)
 int main(void)
 {
     wait_for_terminal();
+    // build_nios.sh concatena os frames, todos com LANE_IMAGE_WIDTH x LANE_IMAGE_HEIGHT
     size_t image_size = (size_t)(bench_rgb_end - bench_rgb);
-    printf("\nRANSAC_BENCH %dx%d, %d execucao(oes), CPU %lu Hz\n", LANE_IMAGE_WIDTH,
-           LANE_IMAGE_HEIGHT, BENCH_RUNS, (unsigned long)ALT_CPU_FREQ);
-    if (image_size != sizeof(nios_rgb)) {
-        printf("ERRO: imagem embutida tem %lu bytes, esperado %lu\n",
-               (unsigned long)image_size, (unsigned long)sizeof(nios_rgb));
+    printf("\nRANSAC_BENCH %dx%d, %d imagem(ns), %d execucao(oes), CPU %lu Hz\n",
+           LANE_IMAGE_WIDTH, LANE_IMAGE_HEIGHT, BENCH_IMAGE_COUNT, BENCH_RUNS,
+           (unsigned long)ALT_CPU_FREQ);
+    if (image_size != BENCH_IMAGE_COUNT * sizeof(nios_rgb)) {
+        printf("ERRO: imagens embutidas tem %lu bytes, esperado %lu\n",
+               (unsigned long)image_size,
+               (unsigned long)(BENCH_IMAGE_COUNT * sizeof(nios_rgb)));
         return 1;
     }
 #ifdef BENCH_ITERATIONS
@@ -50,32 +54,38 @@ int main(void)
            (unsigned long)nios_lane_config.ransac.seed,
            (unsigned long)nios_lane_config.thickness);
 
-    for (int run = 1; run <= BENCH_RUNS; ++run) {
-        IOWR_ALTERA_AVALON_PIO_DATA(LED_PIO_BASE, run);
-        // A copia restaura o RGB que o debug sobrescreve e fica fora da medicao
-        memcpy(nios_rgb, bench_rgb, sizeof(nios_rgb));
+    for (int image = 0; image < BENCH_IMAGE_COUNT; ++image) {
+        const uint8_t *frame = bench_rgb + (size_t)image * sizeof(nios_rgb);
+        for (int run = 1; run <= BENCH_RUNS; ++run) {
+            IOWR_ALTERA_AVALON_PIO_DATA(LED_PIO_BASE, image + 1);
+            // A copia restaura o RGB que o debug sobrescreve e fica fora da medicao
+            memcpy(nios_rgb, frame, sizeof(nios_rgb));
 
-        PERF_RESET(PERF_COUNTER_BASE);
-        PERF_START_MEASURING(PERF_COUNTER_BASE);
-        LaneStatus status = nios_process_rgb();
-        PERF_STOP_MEASURING(PERF_COUNTER_BASE);
+            PERF_RESET(PERF_COUNTER_BASE);
+            PERF_START_MEASURING(PERF_COUNTER_BASE);
+            LaneStatus status = nios_process_rgb();
+            PERF_STOP_MEASURING(PERF_COUNTER_BASE);
 
-        unsigned long long cycles = perf_get_total_time((void *)PERF_COUNTER_BASE);
-        printf("\n== Execucao %d ==\n", run);
-        printf("status=%d found=%d points=%lu inliers=%lu\n", (int)status,
-               (int)nios_lane_result.found, (unsigned long)nios_point_count,
-               (unsigned long)nios_lane_result.inlier_count);
-        printf("a=%.9g b=%.9g c=%.9g mse=%.9g\n", nios_lane_result.poly.a,
-               nios_lane_result.poly.b, nios_lane_result.poly.c,
-               nios_lane_result.mean_squared_error);
-        printf("mask_fnv1a=0x%08lx\n",
-               (unsigned long)fnv1a(nios_lane_mask, sizeof(nios_lane_mask)));
-        printf("total_cycles=%llu total_ms=%.3f\n", cycles,
-               (double)cycles * 1000.0 / (double)ALT_CPU_FREQ);
-        perf_print_formatted_report((void *)PERF_COUNTER_BASE, ALT_CPU_FREQ,
-                                    LANE_SECTION_COUNT, "Pre-processamento",
-                                    "Amostragem", "Estimativa modelo", "Consenso",
-                                    "Refinamento", "Erro/selecao", "Renderizacao");
+            unsigned long long cycles = perf_get_total_time((void *)PERF_COUNTER_BASE);
+            printf("\n== %s (%d/%d), execucao %d ==\n", bench_image_names[image], image + 1,
+                   BENCH_IMAGE_COUNT, run);
+            // linha estavel para o tools/bench_check.py
+            printf("image=%s run=%d\n", bench_image_names[image], run);
+            printf("status=%d found=%d points=%lu inliers=%lu\n", (int)status,
+                   (int)nios_lane_result.found, (unsigned long)nios_point_count,
+                   (unsigned long)nios_lane_result.inlier_count);
+            printf("a=%.9g b=%.9g c=%.9g mse=%.9g\n", nios_lane_result.poly.a,
+                   nios_lane_result.poly.b, nios_lane_result.poly.c,
+                   nios_lane_result.mean_squared_error);
+            printf("mask_fnv1a=0x%08lx\n",
+                   (unsigned long)fnv1a(nios_lane_mask, sizeof(nios_lane_mask)));
+            printf("total_cycles=%llu total_ms=%.3f\n", cycles,
+                   (double)cycles * 1000.0 / (double)ALT_CPU_FREQ);
+            perf_print_formatted_report((void *)PERF_COUNTER_BASE, ALT_CPU_FREQ,
+                                        LANE_SECTION_COUNT, "Pre-processamento",
+                                        "Amostragem", "Estimativa modelo", "Consenso",
+                                        "Refinamento", "Erro/selecao", "Renderizacao");
+        }
     }
     IOWR_ALTERA_AVALON_PIO_DATA(LED_PIO_BASE, 0xFF);
     printf("RANSAC_BENCH_DONE\n");
