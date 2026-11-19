@@ -57,9 +57,10 @@ jtagconfig      # deve listar o USB-Blaster e o EP4CE115
 # 1. Hardware: gera Qsys, cria o projeto e compila (~1 min).
 quartus/RANSAC_NIOS/build_hw.sh     # .sof e .sopcinfo em output/
 
-# 2. Software: BSP + benchmark com a imagem embutida e a referência do computador.
-nios_software/nios/build_nios.sh      # padrão: solidWhiteCurve, 960x540
-WIDTH=480 HEIGHT=270 BENCH_ITERATIONS=200 nios_software/nios/build_nios.sh
+# 2. Software: BSP + benchmark com as imagens embutidas e a referência do computador.
+nios_software/nios/build_nios.sh      # simple: solidWhiteCurve, 960x540
+BENCH_SET=full nios_software/nios/build_nios.sh     # full: as 6 imagens de python/test_images
+WIDTH=320 HEIGHT=180 BENCH_ITERATIONS=200 nios_software/nios/build_nios.sh
 
 # 3. Placa: programa, carrega, imprime o relatório e grava o log.
 nios_software/nios/run_bench.sh
@@ -70,11 +71,45 @@ CABLE="USB-Blaster [1-1]" nios_software/nios/run_bench.sh     # com mais de um c
 `build_hw.sh` de novo antes de voltar ao `/e`. Com `/f`, o script avisa que o
 `.sof` é *time-limited* e o salva como `output/ransac_nios.sof` mesmo assim.
 
-O benchmark aguarda o `nios2-terminal` conectar (`LEDG7` aceso), executa e
-encerra o terminal ao final (`LEDG[7:0]` todos acesos). Para validar a
-execução, compare `a=`, `b=`, `c=`, `inliers=` e `mask_fnv1a=` do log com
-`nios_software/build/nios/reference.txt`, gerado pelo mesmo código C no
-computador.
+O benchmark aguarda o `nios2-terminal` conectar (`LEDG7` aceso), processa as
+imagens em sequência (`LEDG` mostra o número da imagem) e encerra o terminal ao
+final (`LEDG[7:0]` todos acesos). Em seguida o `run_bench.sh` roda
+`tools/bench_check.py`, que compara cada imagem com
+`nios_software/build/nios/reference.txt` (o mesmo código C no computador) e
+imprime PASS/FAIL, tempo total e fração do consenso. Para conferir um log
+antigo: `python3 nios_software/tools/bench_check.py <log>`.
+
+Tempos no Nios II/e: o conjunto `simple` em 960x540 com 1000 iterações leva
+cerca de 12 min; o `full` nessa configuração passa de uma hora. Para uma
+checagem rápida do conjunto `full`, use `WIDTH=320 HEIGHT=180
+BENCH_ITERATIONS=200` (cerca de 5 min).
+
+## Terminal de comandos (shell) pela JTAG UART
+
+Mesmas imagens e opções do benchmark (`BENCH_SET`, `WIDTH`/`HEIGHT`,
+`BENCH_ITERATIONS`), mas interativo: escolhe a imagem, muda parâmetros e roda
+de novo sem recompilar. A referência do computador vai embutida no `.elf`, e a
+própria placa imprime PASS/FAIL enquanto os parâmetros forem os do build.
+
+```bash
+APP=shell BENCH_SET=full WIDTH=320 HEIGHT=180 BENCH_ITERATIONS=200 nios_software/nios/build_nios.sh
+nios_software/nios/run_shell.sh                 # grava o .sof, carrega e abre o nios2-terminal
+nios_software/nios/run_shell.sh --no-program    # só carrega o .elf
+```
+
+```
+ransac> list                  imagens embutidas e referência
+ransac> run 0                 processa e confere: "referencia: PASS"
+ransac> set iterations 100    muda um parâmetro (a referência passa a "n/a")
+ransac> run all               todas as imagens e o resumo PASS/FAIL
+ransac> profile               relatório por seção da última execução
+ransac> reset                 volta aos parâmetros do build
+ransac> quit                  fecha o terminal; a placa segue esperando
+```
+
+Um `run` em andamento não pode ser interrompido. Depois de `quit` ou Ctrl-C,
+`nios2-terminal` reconecta sem recarregar nada (após Ctrl-C, digite `help`
+para ver o prompt de novo).
 
 ## Estrutura de teste pelo In-System Memory Content Editor
 
@@ -86,13 +121,17 @@ diretamente pelo script Python.
 ```bash
 APP=ismce nios_software/nios/build_nios.sh      # gera ransac_ismce.elf
 quartus_pgm -m JTAG -o "p;quartus/RANSAC_NIOS/output/ransac_nios.sof"
-nios2-download -g nios_software/build/nios/ransac_ismce.elf
+nios_software/nios/load_nios.sh nios_software/build/nios/ransac_ismce.elf
 python3 nios_software/tools/ismce_run.py python/test_images/solidWhiteCurve.jpg \
     --width 320 --height 180 --iterations 1000
 ```
 
-Com mais de um cabo, passe `-c "USB-Blaster [1-1]"` ao `quartus_pgm` e ao
-`nios2-download`, e `--cable "USB-Blaster [1-1]"` ao `ismce_run.py`.
+Com mais de um cabo, passe `-c "USB-Blaster [1-1]"` ao `quartus_pgm`,
+`CABLE="USB-Blaster [1-1]"` ao `load_nios.sh` e `--cable "USB-Blaster [1-1]"` ao
+`ismce_run.py`.
+
+Use sempre o `load_nios.sh` em vez do `nios2-download` direto: o
+`nios2-download` não aceita espaços no caminho do `.elf`.
 
 O script redimensiona o JPEG, grava `IMG` e `MBOX` com `quartus_stp`
 (`tools/ismce_run.tcl`), espera o Nios zerar `MBOX_COMMAND` e compara status,
