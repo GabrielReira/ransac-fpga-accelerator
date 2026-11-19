@@ -4,6 +4,7 @@
 # Variaveis:
 #   QUARTUS_ROOTDIR  .../Quartus/quartus (padrao: quartus_sh no PATH)
 #   CPU_IMPL         Tiny (Nios II/e, padrao) ou Fast (Nios II/f)
+#   FPU              1 para incluir o Floating Point Hardware 2 (padrao: 0)
 #   RANSAC_WORK      diretorio de trabalho sem espacos (padrao: ~/.cache/ransac-fpga)
 #
 # As ferramentas do Quartus se perdem com espacos e acentos no caminho, entao
@@ -14,6 +15,7 @@ set -euo pipefail
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 work="${RANSAC_WORK:-$HOME/.cache/ransac-fpga}/hw"
 cpu_impl="${CPU_IMPL:-Tiny}"
+fpu="${FPU:-0}"
 
 if [[ -n "${QUARTUS_ROOTDIR:-}" ]]; then
     export PATH="$QUARTUS_ROOTDIR/bin:$QUARTUS_ROOTDIR/sopc_builder/bin:$PATH"
@@ -31,7 +33,7 @@ cp "$here"/ransac_nios_qsys.tcl "$here"/ransac_nios_project.tcl \
    "$here"/ransac_nios_top.v "$here"/ransac_nios.sdc "$work"/
 cd "$work"
 
-qsys-script --script=ransac_nios_qsys.tcl --cmd="set cpu_impl $cpu_impl"
+qsys-script --script=ransac_nios_qsys.tcl --cmd="set cpu_impl $cpu_impl; set fpu $fpu"
 qsys-generate ransac_nios.qsys --synthesis=VERILOG --output-directory=ransac_nios \
     --family="Cyclone IV E" --part=EP4CE115F29C7
 quartus_sh -t ransac_nios_project.tcl

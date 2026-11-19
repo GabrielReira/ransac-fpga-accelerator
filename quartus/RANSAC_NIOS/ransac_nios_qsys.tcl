@@ -1,5 +1,5 @@
 # Sistema Platform Designer da P1 (somente software)
-# Uso: qsys-script --script=ransac_nios_qsys.tcl [--cmd="set cpu_impl Fast"]
+# Uso: qsys-script --script=ransac_nios_qsys.tcl [--cmd="set cpu_impl Fast; set fpu 1"]
 #
 # Tiny (/e) e o padrao por dispensar licenca
 # Fast (/f) sem licenca gera um .sof OpenCore Plus que so roda com o cabo JTAG conectado
@@ -8,6 +8,10 @@ package require -exact qsys 16.1
 
 if {![info exists cpu_impl]} {
     set cpu_impl Tiny
+}
+# fpu 1 liga o Floating Point Hardware 2: so precisao simples, gratuito e aceito pelo /e
+if {![info exists fpu]} {
+    set fpu 0
 }
 
 create_system ransac_nios
@@ -119,5 +123,13 @@ add_interface sdram conduit end
 set_interface_property sdram EXPORT_OF sdram.wire
 add_interface led conduit end
 set_interface_property led EXPORT_OF led_pio.external_connection
+
+# O FPH2 tem dois escravos de instrucao customizada: s1 combinacional e s2 multiciclo
+# O BSP acrescenta os -mcustom-* sozinho ao ler o .sopcinfo
+if {$fpu} {
+    add_instance fpu altera_nios_custom_instr_floating_point_2
+    add_connection cpu.custom_instruction_master fpu.s1
+    add_connection cpu.custom_instruction_master fpu.s2
+}
 
 save_system ransac_nios.qsys
