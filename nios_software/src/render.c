@@ -19,18 +19,18 @@ bool render_lane_mask(const LaneResult *result, BinaryMask *mask, size_t thickne
         return true;
     }
     for (size_t y = 0; y < mask->height; ++y) {
-        if ((double)y < result->y_min || (double)y > result->y_max) {
+        if ((lane_real)y < result->y_min || (lane_real)y > result->y_max) {
             continue;
         }
-        double x = round(poly_predict(&result->poly, (double)y));
-        /* O polinomio retorna double e pode produzir valores negativos, enormes
+        lane_real x = lane_round(poly_predict(&result->poly, (lane_real)y));
+        /* O polinomio retorna lane_real e pode produzir valores negativos, enormes
            ou nao finitos. Validamos/recortamos antes do cast para size_t;
-           double nao impede a curva de sair da imagem. */
+           lane_real nao impede a curva de sair da imagem. */
         if (!isfinite(x)) {
             continue;
         }
-        double left = fmax(0, x - (double)((thickness - 1) / 2));
-        double right = fmin((double)mask->width - 1, x + (double)(thickness / 2));
+        lane_real left = lane_fmax(0, x - (lane_real)((thickness - 1) / 2));
+        lane_real right = lane_fmin((lane_real)mask->width - 1, x + (lane_real)(thickness / 2));
         if (left > right) {
             continue;
         }
@@ -41,10 +41,10 @@ bool render_lane_mask(const LaneResult *result, BinaryMask *mask, size_t thickne
     return true;
 }
 
-static void red_pixel(Image *image, double x, double y)
+static void red_pixel(Image *image, lane_real x, lane_real y)
 {
     if (!isfinite(x) || !isfinite(y) || x < 0 || y < 0 ||
-        x >= (double)image->width || y >= (double)image->height) {
+        x >= (lane_real)image->width || y >= (lane_real)image->height) {
         return;
     }
     uint8_t *pixel = &image->pixels[3 * ((size_t)y * image->width + (size_t)x)];
@@ -58,13 +58,13 @@ void render_debug(Image *image, const BinaryMask *mask, const Point *points,
     for (size_t y = 0; y < mask->height; ++y) {
         for (size_t x = 0; x < mask->width; ++x) {
             if (mask->pixels[y * mask->width + x]) {
-                red_pixel(image, (double)x, (double)y);
+                red_pixel(image, (lane_real)x, (lane_real)y);
             }
         }
     }
     for (size_t i = 0; i < result->inlier_count; ++i) {
         Point point = points[inlier_ids[i]];
-        double x = round(point.x), y = round(point.y);
+        lane_real x = lane_round(point.x), y = lane_round(point.y);
         red_pixel(image, x, y);
         red_pixel(image, x - 1, y);
         red_pixel(image, x + 1, y);

@@ -46,7 +46,7 @@ bool ransac_fit(const Point *points, size_t count, const RansacConfig *config,
         return false;
     }
     /* Configuracao em pixels; calcula o quadrado apenas uma vez por chamada. */
-    double threshold_squared = config->threshold * config->threshold;
+    lane_real threshold_squared = config->threshold * config->threshold;
     if (!isfinite(threshold_squared) || threshold_squared == 0) {
         return false;
     }
@@ -91,7 +91,7 @@ bool ransac_fit(const Point *points, size_t count, const RansacConfig *config,
             if (i == sample[0] || i == sample[1] || i == sample[2]) {
                 continue;
             }
-            double dx = points[i].x - poly_predict(&candidate, points[i].y);
+            lane_real dx = points[i].x - poly_predict(&candidate, points[i].y);
             if (dx * dx < threshold_squared) {
                 workspace->candidate_ids[inliers++] = i;
             }
@@ -109,16 +109,16 @@ bool ransac_fit(const Point *points, size_t count, const RansacConfig *config,
             continue;
         }
         LANE_PROFILE_BEGIN(LANE_SECTION_ERROR);
-        double error = 0;
-        double low = INFINITY, high = -INFINITY;
+        lane_real error = 0;
+        lane_real low = INFINITY, high = -INFINITY;
         for (size_t i = 0; i < inliers; ++i) {
             Point point = points[workspace->candidate_ids[i]];
-            double dx = point.x - poly_predict(&consensus_model, point.y);
+            lane_real dx = point.x - poly_predict(&consensus_model, point.y);
             error += dx * dx;
-            low = fmin(low, point.y);
-            high = fmax(high, point.y);
+            low = lane_fmin(low, point.y);
+            high = lane_fmax(high, point.y);
         }
-        error /= (double)inliers;
+        error /= (lane_real)inliers;
         if (isfinite(error) && (!result->found || inliers > result->inlier_count ||
             (inliers == result->inlier_count && error < result->mean_squared_error))) {
             *result = (LaneResult){true, consensus_model, inliers, error, low, high};

@@ -5,7 +5,7 @@
 
 typedef struct {
     size_t iterations;
-    double threshold; /* Residuo horizontal maximo em pixels; limite estrito. */
+    lane_real threshold; /* Residuo horizontal maximo em pixels; limite estrito. */
     size_t min_inliers;
     uint32_t seed;
 } RansacConfig;
@@ -20,9 +20,9 @@ typedef struct {
     bool found;
     Poly poly;
     size_t inlier_count;
-    double mean_squared_error;
-    double y_min;
-    double y_max;
+    lane_real mean_squared_error;
+    lane_real y_min;
+    lane_real y_max;
 } LaneResult;
 
 RansacConfig ransac_default_config(void);

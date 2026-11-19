@@ -4,6 +4,13 @@ SANITIZERS ?= address,undefined
 CPPFLAGS += -Iinclude
 CFLAGS ?= -O2 -g
 CFLAGS += -std=c11 -Wall -Wextra -Wpedantic -Werror
+# REAL=float compila o pipeline em precisao simples, como no Nios com FPU
+# Os testes de tests/test_core.c usam tolerancias de double; rode make clean ao trocar
+REAL ?= double
+ifeq ($(REAL),float)
+CPPFLAGS += -DLANE_REAL_FLOAT
+CFLAGS += -fsingle-precision-constant
+endif
 LDLIBS += -lm
 
 CORE_NAMES = preprocess poly ransac render lane
